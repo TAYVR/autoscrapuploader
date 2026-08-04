@@ -2,41 +2,44 @@
   {
     "tmdbId": 1341658889,
     "title": "TopCinema\nتــوب سينمـــا",
-    "movieUrl": "https://topcinemaa.co/%d9%81%d9%8a%d9%84%d9%85-the-currents-2025-%d9%85%d8%aa%d8%b1%d8%ac%d9%85-%d8%a7%d9%88%d9%86-%d9%84%d8%a7%d9%8a%d9%86/",
-    "hlsUrl": "https://streamwish.fun/stream/vH2_zucjRIQlBEPI5TCvPw/kjhhiuahiuhgihdf/1785909886/73646736/master.m3u8",
+    "movieUrl": "https://topcinemaa.co/%d9%81%d9%8a%d9%84%d9%85-penance-2025-%d9%85%d8%aa%d8%b1%d8%ac%d9%85-%d8%a7%d9%88%d9%86-%d9%84%d8%a7%d9%8a%d9%86/",
+    "hlsUrl": "https://streamwish.fun/stream/1mKCcvdeU4skvIOYPdn4nA/kjhhiuahiuhgihdf/1785912000/73635186/master.m3u8",
     "uploads": {
       "streamwish": {
         "msg": "OK",
         "status": 200,
         "files": [
           {
-            "filecode": "l3vtkgtijdeb",
-            "filename": "output_0.ts",
+            "filecode": "idwv73r5mn0t",
+            "filename": "TopCinema_تــوب_سينمـــا.mp4",
             "status": "OK"
           }
         ]
       },
-      "doodstream": {
-        "error": "Failed to retrieve Doodstream upload URL"
-      },
+      "doodstream": "<HTML><BODY><Form name='F1' action='https://fs-public.intconnect.net/' target='_parent' method='POST'><textarea name=\"op\">upload_result</textarea><textarea name=\"fn\">TopCinema_تــوب_سينمـــا.mp4</textarea><textarea name=\"st\">0:0:0:You are not allowed to upload files</textarea></Form><Script>document.location='javascript:false';document.F1.submit();</Script></BODY></HTML>",
       "earnvids": {
         "msg": "OK",
         "status": 200,
         "files": [
           {
-            "filecode": "9zkeiesajxkl",
-            "filename": "output_0.ts",
+            "filecode": "yn4uwwwn7gbb",
+            "filename": "TopCinema_تــوب_سينمـــا.mp4",
             "status": "OK"
           }
         ]
       },
       "mixdrop": {
-        "error": "Request failed with status code 404"
+        "success": true,
+        "result": {
+          "fileref": "67q9klz3snj0nk",
+          "url": "https://mixdrop.top/f/67q9klz3snj0nk",
+          "embedurl": "https://mixdrop.top/e/67q9klz3snj0nk"
+        }
       },
       "vinovo": {
         "status": 400,
         "msg": "Missing parameters",
-        "server_time": "2026-08-04 18:17:56",
+        "server_time": "2026-08-04 18:50:05",
         "result": null
       },
       "clicknupload": {
@@ -47,9 +50,9 @@
         "status": 200,
         "files": [
           {
-            "filecode": "",
-            "filename": "output_0.ts",
-            "status": "Not video file (output_0.ts)"
+            "filecode": "8lyrvlkvau6r",
+            "filename": "TopCinema_تــوب_سينمـــا.mp4",
+            "status": "OK"
           }
         ]
       }
