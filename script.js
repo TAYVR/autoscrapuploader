@@ -455,7 +455,8 @@ async function main() {
         }
         console.log(`[HLS] Extracted stream URL: ${hlsUrl}`);
 
-        const outputVideo = `output_${i}.mp4`;
+        const safeTitle = (metadata.title || `output_${i}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, '').trim().replace(/\s+/g, '_');
+        const outputVideo = `${safeTitle}.mp4`;
         console.log('[HLS-DL] Downloading stream via Node.js HLS downloader...');
 
         try {
