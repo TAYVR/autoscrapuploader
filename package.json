@@ -1,0 +1,17 @@
+{
+    "name": "tomito-pipeline",
+    "version": "1.0.0",
+    "description": "Automated Topcinemaa movie scraper, decoder, multi-host uploader and Turso DB indexer pipeline",
+    "main": "script.js",
+    "scripts": {
+        "start": "node script.js"
+    },
+    "dependencies": {
+        "@libsql/client": "^0.14.0",
+        "axios": "^1.7.9",
+        "form-data": "^4.0.1",
+        "puppeteer": "^24.3.0",
+        "puppeteer-extra": "^3.3.6",
+        "puppeteer-extra-plugin-stealth": "^2.11.2"
+    }
+}

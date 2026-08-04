@@ -1,0 +1,54 @@
+{
+    "hosts": {
+        "streamwish": {
+            "api": "https://streamhgapi.com/api",
+            "key": "32701lz5d1jfv0uu1elfa",
+            "type": "xfs"
+        },
+        "doodstream": {
+            "api": "https://doodapi.com/api",
+            "key": "574750ige8zqsorv1zlwyi",
+            "type": "dood"
+        },
+        "earnvids": {
+            "api": "https://earnvidsapi.com/api",
+            "key": "46568v1m8g373eass4yeh",
+            "type": "xfs"
+        },
+        "mixdrop": {
+            "api": "https://ul.mixdrop.ag/api",
+            "key": "tKDSypNMSQ2dYYz",
+            "email": "pp7426912@gmail.com",
+            "type": "mixdrop"
+        },
+        "vinovo": {
+            "api": "https://api.vinovo.si/api",
+            "key": "1841f97685c80022a4b1685f429888",
+            "type": "vinovo"
+        },
+        "clicknupload": {
+            "api": "https://clicknupload.click/api",
+            "key": "94544nk3sccdlxhphrdev",
+            "type": "clickn"
+        },
+        "uqload": {
+            "api": "https://uqload.is/api",
+            "key": "156977pmaybroiyjg6pbtp",
+            "type": "xfs"
+        }
+    },
+    "databases": {
+        "db1_index": {
+            "url": "libsql://database1-tomito.aws-eu-west-1.turso.io",
+            "authToken": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODUyODk4MjYsImlkIjoiMDE5ZmFiOTAtOTMwMS03YWNjLTlmZTYtYWIzZmUzYWU0Y2QzIiwia2lkIjoiMnpLdVpIdWVmWjlMSTJ5SzBfZVNmVFRMSWQ0RmFXT2FBUFc2SXVQdjhaQSIsInJpZCI6IjY3ZDEzMzFjLTRjODYtNGExZS1hYWJmLTRkMzhmYWZlYWMxZiJ9.MSLlRIMNFkpYMmZXFRPBl8rcXEES2rPjNKe5H77q4qPzf80Me0f77sjdTdg9dIN_J3XXeYppBAfHXWCUJR_sDg"
+        },
+        "db2_data": {
+            "url": "libsql://database2-tomito2.aws-eu-west-1.turso.io",
+            "authToken": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODUyOTAwMDQsImlkIjoiMDE5ZmFiOTMtNmIwMS03OTg1LWE4YWMtYmViYWNkNzBkYTIxIiwia2lkIjoiS3ZfY1ZkNWtQME5rMmNOR2pZRjlKYTBmdWIzOGl6Tlo3LU1rVDdhQS1NNCIsInJpZCI6IjUxYmFmZTg0LWZmOGMtNDI4OS1iZmZhLWQ1MjUyMTY1NTJhMSJ9.kQXmMecFx5hx6jDIhVUuRqWmTzGYe4kEvAHuYuGI_ssYvXwwPvyxbbMihSwxKXNsFR20LI_5hPzqXrT7tc5bAg"
+        },
+        "db3_data": {
+            "url": "libsql://database3-tomito3.aws-eu-west-1.turso.io",
+            "authToken": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODUyOTAyNjEsImlkIjoiMDE5ZmFiOTUtZjcwMS03Yzk2LTgzYTctNTJkNWQ1OGEyNjgwIiwia2lkIjoiZ3p1bWVrTGRacDNVdEtBSDg4OVpkNGo1dUhBZm9RU3NxR0NUbU1OUjJnMCIsInJpZCI6IjIzMjg2Yzg3LTZjYjAtNGJmOC05MjNiLWVhNTQzOWRiMzI5MCJ9.kyeyRE9cg9sUU1zE_h98lp7FpzVY4Q_dJ9rdc_znb6ihItoGOY5roZbi2zN0X1FZGkbyh4M2cgV56ukglMfnAA"
+        }
+    }
+}

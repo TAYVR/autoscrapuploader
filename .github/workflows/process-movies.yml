@@ -1,0 +1,55 @@
+name: Tomito Movie Automation Pipeline
+
+on:
+  schedule:
+    # Runs twice a day to safely process 3 movies total across the day
+    - cron: '0 0,12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  process-movies:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install FFmpeg & Chrome dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libnss3 libasound2t64 libgbm1
+
+      - name: Install Dependencies
+        run: |
+          npm install
+
+      - name: Install Chrome for Puppeteer
+        run: npx puppeteer browsers install chrome
+
+      - name: Run Scraping, Decoding & Upload Pipeline
+        run: node script.js
+        env:
+          TARGET_BASE_URL: "https://topcinemaa.co/"
+
+      - name: Commit and push state changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add state.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update state.json [skip ci]" && git push)
+
+      - name: Upload result.json artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload-results
+          path: result.json
