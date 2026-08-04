@@ -2,8 +2,8 @@ name: Automated Movie Scraper Pipeline
 
 on:
   schedule:
-    # Runs 3 times a day: 09:00, 15:00, and 21:00 UTC (1 movie per run)
-    - cron: '0 9,15,21 * * *'
+    # Runs 10 times a day spaced out
+    - cron: '0 2,4,7,9,11,14,16,18,20,22 * * *'
   workflow_dispatch:
     inputs:
       batch_size:

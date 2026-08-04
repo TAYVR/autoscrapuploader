@@ -164,7 +164,7 @@ async function uploadToHost(hostName, hostConfig, filePath) {
             }
             form.append('key', hostConfig.key);
         } else if (hostConfig.type === 'dood') {
-            const serverRes = await axios.get(`${hostConfig.api}/upload/to`, {
+            const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
             if (serverRes.data && serverRes.data.result) {
@@ -174,7 +174,7 @@ async function uploadToHost(hostName, hostConfig, filePath) {
             }
             form.append('key', hostConfig.key);
         } else if (hostConfig.type === 'mixdrop') {
-            uploadUrl = `${hostConfig.api}/upload`;
+            uploadUrl = hostConfig.api;
             form.append('email', hostConfig.email);
             form.append('key', hostConfig.key);
         }
@@ -455,7 +455,7 @@ async function main() {
         }
         console.log(`[HLS] Extracted stream URL: ${hlsUrl}`);
 
-        const outputVideo = `output_${i}.ts`;
+        const outputVideo = `output_${i}.mp4`;
         console.log('[HLS-DL] Downloading stream via Node.js HLS downloader...');
 
         try {
