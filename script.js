@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const FormData = require('form-data');
-const { spawn } = require('child_process');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { saveMovieRecord } = require('./turso');
@@ -40,25 +39,81 @@ function saveState(state) {
     console.log(`[STATE] Saved state.json: Page ${state.currentPage}, total processed movies: ${state.processedMovies.length}`);
 }
 /**
- * Helper to run shell commands (FFmpeg) with progress logging
+ * Downloads an HLS stream to a local .ts file using Node.js axios.
+ * Uses browser-like headers to bypass CDN bot detection that blocks FFmpeg.
  */
-function runCommand(command, args) {
-    return new Promise((resolve, reject) => {
-        const proc = spawn(command, args);
-        proc.stderr.on('data', (data) => {
-            const output = data.toString();
-            if (output.includes('time=')) {
-                const match = output.match(/time=\S+/);
-                if (match) process.stdout.write(`\r[FFMPEG PROGRESS]: ${match[0]}`);
-            }
+async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
+    const referer = iframeUrl || masterUrl;
+    const origin = new URL(referer).origin;
+
+    const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': referer,
+        'Origin': origin,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin'
+    };
+
+    // Step 1: Fetch master playlist
+    console.log('[HLS-DL] Fetching master playlist...');
+    const masterRes = await axios.get(masterUrl, { headers, timeout: 30000 });
+    const masterText = masterRes.data;
+    const baseUrl = masterUrl.substring(0, masterUrl.lastIndexOf('/') + 1);
+
+    // Step 2: Find best quality sub-playlist
+    let streamUrl = null;
+    const lines = masterText.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+        if (!line.startsWith('#')) {
+            streamUrl = line.startsWith('http') ? line : baseUrl + line;
+            break;
+        }
+    }
+
+    if (!streamUrl) throw new Error('No stream playlist found in master.m3u8');
+
+    // Step 3: Fetch segment playlist
+    console.log(`[HLS-DL] Fetching segment playlist: ${streamUrl}`);
+    const streamBase = streamUrl.substring(0, streamUrl.lastIndexOf('/') + 1);
+    const segRes = await axios.get(streamUrl, { headers, timeout: 30000 });
+    const segLines = segRes.data.split('\n').map(l => l.trim()).filter(Boolean);
+
+    const segments = segLines
+        .filter(l => !l.startsWith('#'))
+        .map(l => l.startsWith('http') ? l : streamBase + l);
+
+    if (segments.length === 0) throw new Error('No segments found in stream playlist');
+    console.log(`[HLS-DL] Downloading ${segments.length} segments...`);
+
+    // Step 4: Download and concatenate segments
+    const writeStream = fs.createWriteStream(outputPath);
+    for (let idx = 0; idx < segments.length; idx++) {
+        const segUrl = segments[idx];
+        if ((idx + 1) % 20 === 0 || idx === 0) {
+            process.stdout.write(`\r[HLS-DL] Segment ${idx + 1}/${segments.length}`);
+        }
+        const segData = await axios.get(segUrl, {
+            headers,
+            responseType: 'arraybuffer',
+            timeout: 60000
         });
-        proc.on('close', (code) => {
-            console.log('');
-            if (code === 0) resolve();
-            else reject(new Error(`Process exited with code ${code}`));
-        });
+        writeStream.write(Buffer.from(segData.data));
+    }
+    console.log('');
+
+    await new Promise((resolve, reject) => {
+        writeStream.end();
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
     });
+
+    const stats = fs.statSync(outputPath);
+    console.log(`[HLS-DL] Download complete: ${outputPath} (${(stats.size / 1024 / 1024).toFixed(1)} MB)`);
 }
+
 
 
 /**
@@ -400,25 +455,13 @@ async function main() {
         }
         console.log(`[HLS] Extracted stream URL: ${hlsUrl}`);
 
-        const outputVideo = `output_${i}.mp4`;
-        console.log('[FFMPEG] Downloading and converting stream to local MP4...');
-
-        // Use the StreamWish iframe URL as Referer so the CDN authorizes the request
-        const refererUrl = metadata.iframeUrl || movieUrl;
-        const swOrigin = refererUrl ? new URL(refererUrl).origin : 'https://streamwish.fun';
+        const outputVideo = `output_${i}.ts`;
+        console.log('[HLS-DL] Downloading stream via Node.js HLS downloader...');
 
         try {
-            const ffmpegArgs = [
-                '-y',
-                '-headers', `Referer: ${refererUrl}\r\nOrigin: ${swOrigin}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\n`,
-                '-i', hlsUrl,
-                '-c', 'copy',
-                '-bsf:a', 'aac_adtstoasc',
-                outputVideo
-            ];
-            await runCommand('ffmpeg', ffmpegArgs);
+            await downloadHlsToFile(hlsUrl, metadata.iframeUrl, outputVideo);
         } catch (err) {
-            console.error('[FFMPEG ERROR] Conversion failed:', err.message);
+            console.error('[HLS-DL ERROR] Download failed:', err.message);
             continue;
         }
 
