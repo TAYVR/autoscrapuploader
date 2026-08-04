@@ -361,6 +361,7 @@ async function extractMovieMetadataAndStream(movieUrl) {
         await new Promise(resolve => setTimeout(resolve, 6000));
         return {
             hlsUrl: streamUrl,
+            iframeUrl: streamWishIframeSrc,
             title: titleData.title,
             year: titleData.year
         };
@@ -402,10 +403,14 @@ async function main() {
         const outputVideo = `output_${i}.mp4`;
         console.log('[FFMPEG] Downloading and converting stream to local MP4...');
 
+        // Use the StreamWish iframe URL as Referer so the CDN authorizes the request
+        const refererUrl = metadata.iframeUrl || movieUrl;
+        const swOrigin = refererUrl ? new URL(refererUrl).origin : 'https://streamwish.fun';
+
         try {
             const ffmpegArgs = [
                 '-y',
-                '-headers', `Referer: ${movieUrl}\r\nUser-Agent: Mozilla/5.0\r\n`,
+                '-headers', `Referer: ${refererUrl}\r\nOrigin: ${swOrigin}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\n`,
                 '-i', hlsUrl,
                 '-c', 'copy',
                 '-bsf:a', 'aac_adtstoasc',
