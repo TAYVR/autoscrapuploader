@@ -168,7 +168,10 @@ async function scrapeTopcinemaaMovies(state) {
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
 
-        while (newMovies.length < 3 && pageNum <= maxPageAttempts) {
+        const limit = parseInt(process.env.BATCH_SIZE || '1', 10);
+        console.log(`[SCRAPE] Target batch size: ${limit} movie(s) per run.`);
+
+        while (newMovies.length < limit && pageNum <= maxPageAttempts) {
             const pageUrl = pageNum === 1
                 ? `${baseClean}/movies/`
                 : `${baseClean}/movies/page/${pageNum}/`;
@@ -215,7 +218,7 @@ async function scrapeTopcinemaaMovies(state) {
                 if (!state.processedMovies.includes(link) && !newMovies.includes(link)) {
                     newMovies.push(link);
                     addedFromThisPage++;
-                    if (newMovies.length === 3) break;
+                    if (newMovies.length === limit) break;
                 }
             }
 

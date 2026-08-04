@@ -1,55 +1,47 @@
-name: Tomito Movie Automation Pipeline
+name: Automated Movie Scraper Pipeline
 
 on:
   schedule:
-    # Runs twice a day to safely process 3 movies total across the day
-    - cron: '0 0,12 * * *'
+    # Runs 3 times a day: 09:00, 15:00, and 21:00 UTC (1 movie per run)
+    - cron: '0 9,15,21 * * *'
   workflow_dispatch:
-
-permissions:
-  contents: write
+    inputs:
+      batch_size:
+        description: 'Number of movies to process in this run'
+        required: false
+        default: '1'
 
 jobs:
-  process-movies:
+  scrape-and-upload:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
-      - name: Checkout Repository
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
+          cache: 'npm'
 
-      - name: Install FFmpeg & Chrome dependencies
+      - name: Install System Dependencies (FFmpeg & Chrome libs)
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libnss3 libasound2t64 libgbm1
+          sudo apt-get install -y ffmpeg ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcaio2 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 lsb-release wget xdg-utils
 
-      - name: Install Dependencies
-        run: |
-          npm install
+      - name: Install Node Dependencies
+        run: npm ci
 
-      - name: Install Chrome for Puppeteer
-        run: npx puppeteer browsers install chrome
-
-      - name: Run Scraping, Decoding & Upload Pipeline
-        run: node script.js
+      - name: Run Movie Scraper Script
         env:
-          TARGET_BASE_URL: "https://topcinemaa.co/"
+          BATCH_SIZE: ${{ github.event.inputs.batch_size || '1' }}
+          TARGET_BASE_URL: 'https://topcinemaa.co/'
+        run: node script.js
 
-      - name: Commit and push state changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add state.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update state.json [skip ci]" && git push)
-
-      - name: Upload result.json artifact
-        uses: actions/upload-artifact@v4
+      - name: Commit and Push Updated State
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          name: upload-results
-          path: result.json
+          commit_message: "chore: update state.json [skip ci]"
+          file_pattern: "state.json result.json"
