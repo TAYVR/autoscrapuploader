@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const FormData = require('form-data');
-const { spawn } = require('child_process');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { saveMovieRecord } = require('./turso');
@@ -40,26 +38,7 @@ function saveState(state) {
     console.log(`[STATE] Saved state.json: Page ${state.currentPage}, total processed movies: ${state.processedMovies.length}`);
 }
 
-/**
- * Helper to run shell commands (FFmpeg) with progress logging
- */
-function runCommand(command, args) {
-    return new Promise((resolve, reject) => {
-        const proc = spawn(command, args);
-        proc.stderr.on('data', (data) => {
-            const output = data.toString();
-            if (output.includes('time=')) {
-                const match = output.match(/time=\S+/);
-                if (match) process.stdout.write(`\r[FFMPEG PROGRESS]: ${match[0]}`);
-            }
-        });
-        proc.on('close', (code) => {
-            console.log('');
-            if (code === 0) resolve();
-            else reject(new Error(`Process exited with code ${code}`));
-        });
-    });
-}
+
 
 /**
  * Resolves TMDB ID via TMDB Search API or fallback hash
@@ -91,53 +70,40 @@ async function resolveTmdbId(title, year) {
 }
 
 /**
- * Upload logic for multi-host video uploaders
+ * Remote URL Upload — sends the m3u8/video URL directly to the host CDN.
+ * No local download or FFmpeg needed.
  */
-async function uploadToHost(hostName, hostConfig, filePath) {
-    const form = new FormData();
-    let uploadUrl = '';
-
+async function remoteUploadToHost(hostName, hostConfig, videoUrl) {
     try {
+        let res;
+
         if (hostConfig.type === 'xfs' || hostConfig.type === 'clickn' || hostConfig.type === 'vinovo') {
-            const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
-                params: { key: hostConfig.key }
+            // XFS-compatible hosts: GET /upload/url?key=...&url=...
+            res = await axios.get(`${hostConfig.api}/upload/url`, {
+                params: { key: hostConfig.key, url: videoUrl },
+                timeout: 60000
             });
-            if (serverRes.data && serverRes.data.result) {
-                uploadUrl = serverRes.data.result;
-            } else {
-                throw new Error('Failed to retrieve upload server URL');
-            }
-            form.append('key', hostConfig.key);
         } else if (hostConfig.type === 'dood') {
-            const serverRes = await axios.get(`${hostConfig.api}/upload/to`, {
-                params: { key: hostConfig.key }
+            // DoodStream: GET /upload/url?key=...&url=...
+            res = await axios.get(`${hostConfig.api}/upload/url`, {
+                params: { key: hostConfig.key, url: videoUrl },
+                timeout: 60000
             });
-            if (serverRes.data && serverRes.data.result) {
-                uploadUrl = serverRes.data.result;
-            } else {
-                throw new Error('Failed to retrieve Doodstream upload URL');
-            }
-            form.append('key', hostConfig.key);
         } else if (hostConfig.type === 'mixdrop') {
-            uploadUrl = `${hostConfig.api}/upload`;
+            // Mixdrop: POST /fromurl with email, key, url
+            const form = new URLSearchParams();
             form.append('email', hostConfig.email);
             form.append('key', hostConfig.key);
+            form.append('url', videoUrl);
+            res = await axios.post(`${hostConfig.api}/fromurl`, form, { timeout: 60000 });
+        } else {
+            throw new Error(`Unknown host type: ${hostConfig.type}`);
         }
 
-        form.append('file', fs.createReadStream(filePath));
-
-        console.log(`[UPLOAD] Starting upload to ${hostName}...`);
-        const uploadRes = await axios.post(uploadUrl, form, {
-            headers: form.getHeaders(),
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            timeout: 3600000 // 1 hour timeout
-        });
-
-        console.log(`[UPLOAD] Success on ${hostName}:`, uploadRes.data);
-        return uploadRes.data;
+        console.log(`[REMOTE UPLOAD] Queued on ${hostName}:`, JSON.stringify(res.data));
+        return res.data;
     } catch (error) {
-        console.error(`[UPLOAD ERROR] Failed on ${hostName}:`, error.message);
+        console.error(`[REMOTE UPLOAD ERROR] Failed on ${hostName}:`, error.message);
         return { error: error.message };
     }
 }
@@ -400,31 +366,11 @@ async function main() {
         }
         console.log(`[HLS] Extracted stream URL: ${hlsUrl}`);
 
-        const outputVideo = `output_${i}.mp4`;
-        console.log('[FFMPEG] Downloading and converting stream to local MP4...');
-
-        // Use the StreamWish iframe URL as Referer so the CDN authorizes the request
-        const refererUrl = metadata.iframeUrl || movieUrl;
-        const swOrigin = refererUrl ? new URL(refererUrl).origin : 'https://streamwish.fun';
-
-        try {
-            const ffmpegArgs = [
-                '-y',
-                '-headers', `Referer: ${refererUrl}\r\nOrigin: ${swOrigin}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\n`,
-                '-i', hlsUrl,
-                '-c', 'copy',
-                '-bsf:a', 'aac_adtstoasc',
-                outputVideo
-            ];
-            await runCommand('ffmpeg', ffmpegArgs);
-        } catch (err) {
-            console.error('[FFMPEG ERROR] Conversion failed:', err.message);
-            continue;
-        }
-
+        // Remote upload: send the m3u8 URL directly to each host CDN — no FFmpeg needed
+        console.log('[REMOTE UPLOAD] Sending stream URL to all hosts via Remote Upload API...');
         const movieUploadResults = {};
         for (const [hostName, hostConfig] of Object.entries(CONFIG.hosts)) {
-            const res = await uploadToHost(hostName, hostConfig, outputVideo);
+            const res = await remoteUploadToHost(hostName, hostConfig, hlsUrl);
             movieUploadResults[hostName] = res;
         }
 
@@ -452,11 +398,6 @@ async function main() {
             hlsUrl,
             uploads: movieUploadResults
         });
-
-        if (fs.existsSync(outputVideo)) {
-            fs.unlinkSync(outputVideo);
-            console.log(`[CLEANUP] Deleted local file ${outputVideo}`);
-        }
 
         saveState(state);
     }
