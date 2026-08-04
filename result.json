@@ -1,1 +1,58 @@
-[]
+[
+  {
+    "tmdbId": 1341658889,
+    "title": "TopCinema\nتــوب سينمـــا",
+    "movieUrl": "https://topcinemaa.co/%d9%81%d9%8a%d9%84%d9%85-the-currents-2025-%d9%85%d8%aa%d8%b1%d8%ac%d9%85-%d8%a7%d9%88%d9%86-%d9%84%d8%a7%d9%8a%d9%86/",
+    "hlsUrl": "https://streamwish.fun/stream/vH2_zucjRIQlBEPI5TCvPw/kjhhiuahiuhgihdf/1785909886/73646736/master.m3u8",
+    "uploads": {
+      "streamwish": {
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "l3vtkgtijdeb",
+            "filename": "output_0.ts",
+            "status": "OK"
+          }
+        ]
+      },
+      "doodstream": {
+        "error": "Failed to retrieve Doodstream upload URL"
+      },
+      "earnvids": {
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "9zkeiesajxkl",
+            "filename": "output_0.ts",
+            "status": "OK"
+          }
+        ]
+      },
+      "mixdrop": {
+        "error": "Request failed with status code 404"
+      },
+      "vinovo": {
+        "status": 400,
+        "msg": "Missing parameters",
+        "server_time": "2026-08-04 18:17:56",
+        "result": null
+      },
+      "clicknupload": {
+        "error": "Failed to retrieve upload server URL"
+      },
+      "uqload": {
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "",
+            "filename": "output_0.ts",
+            "status": "Not video file (output_0.ts)"
+          }
+        ]
+      }
+    }
+  }
+]
