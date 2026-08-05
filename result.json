@@ -1,1 +1,61 @@
-[]
+[
+  {
+    "tmdbId": 1341658889,
+    "title": "TopCinema\nتــوب سينمـــا",
+    "movieUrl": "https://topcinemaa.co/%d9%81%d9%8a%d9%84%d9%85-lucky-strike-2026-%d9%85%d8%aa%d8%b1%d8%ac%d9%85-%d8%a7%d9%88%d9%86-%d9%84%d8%a7%d9%8a%d9%86/",
+    "hlsUrl": "https://streamwish.fun/stream/jnrmcoLg-mgSbXP260WyBw/kjhhiuahiuhgihdf/1785988982/73657296/master.m3u8",
+    "uploads": {
+      "streamwish": {
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "dlsljro2a9uc",
+            "filename": "TopCinema_تــوب_سينمـــا.mp4",
+            "status": "OK"
+          }
+        ]
+      },
+      "doodstream": "<HTML><BODY><Form name='F1' action='https://fs-public.intconnect.net/' target='_parent' method='POST'><textarea name=\"op\">upload_result</textarea><textarea name=\"fn\">TopCinema_تــوب_سينمـــا.mp4</textarea><textarea name=\"st\">0:0:0:You are not allowed to upload files</textarea></Form><Script>document.location='javascript:false';document.F1.submit();</Script></BODY></HTML>",
+      "earnvids": {
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "3w9b0k0t9agq",
+            "filename": "TopCinema_تــوب_سينمـــا.mp4",
+            "status": "OK"
+          }
+        ]
+      },
+      "mixdrop": {
+        "success": true,
+        "result": {
+          "fileref": "vknzwmrohjpvz6",
+          "url": "https://mixdrop.top/f/vknzwmrohjpvz6",
+          "embedurl": "https://mixdrop.top/e/vknzwmrohjpvz6"
+        }
+      },
+      "vinovo": {
+        "status": 400,
+        "msg": "Missing parameters",
+        "server_time": "2026-08-05 16:23:37",
+        "result": null
+      },
+      "clicknupload": {
+        "error": "Failed to retrieve upload server URL"
+      },
+      "uqload": {
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "34zucruiqpej",
+            "filename": "TopCinema_تــوب_سينمـــا.mp4",
+            "status": "OK"
+          }
+        ]
+      }
+    }
+  }
+]
