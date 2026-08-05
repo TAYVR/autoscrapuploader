@@ -2,15 +2,15 @@
   {
     "tmdbId": 1341658889,
     "title": "TopCinema\nتــوب سينمـــا",
-    "movieUrl": "https://topcinemaa.co/%d9%81%d9%8a%d9%84%d9%85-lucky-strike-2026-%d9%85%d8%aa%d8%b1%d8%ac%d9%85-%d8%a7%d9%88%d9%86-%d9%84%d8%a7%d9%8a%d9%86/",
-    "hlsUrl": "https://streamwish.fun/stream/jnrmcoLg-mgSbXP260WyBw/kjhhiuahiuhgihdf/1785988982/73657296/master.m3u8",
+    "movieUrl": "https://topcinemaa.co/%d9%81%d9%8a%d9%84%d9%85-lockbox-2026-%d9%85%d8%aa%d8%b1%d8%ac%d9%85-%d8%a7%d9%88%d9%86-%d9%84%d8%a7%d9%8a%d9%86/",
+    "hlsUrl": "https://streamwish.fun/stream/gbGmxUc4W6NlDfebRfwWGA/kjhhiuahiuhgihdf/1785994158/73657258/master.m3u8",
     "uploads": {
       "streamwish": {
         "msg": "OK",
         "status": 200,
         "files": [
           {
-            "filecode": "dlsljro2a9uc",
+            "filecode": "z9jso49dk0gp",
             "filename": "TopCinema_تــوب_سينمـــا.mp4",
             "status": "OK"
           }
@@ -22,7 +22,7 @@
         "status": 200,
         "files": [
           {
-            "filecode": "3w9b0k0t9agq",
+            "filecode": "yw2h66ul020u",
             "filename": "TopCinema_تــوب_سينمـــا.mp4",
             "status": "OK"
           }
@@ -31,30 +31,22 @@
       "mixdrop": {
         "success": true,
         "result": {
-          "fileref": "vknzwmrohjpvz6",
-          "url": "https://mixdrop.top/f/vknzwmrohjpvz6",
-          "embedurl": "https://mixdrop.top/e/vknzwmrohjpvz6"
+          "fileref": "03v94m1kbvpkqx",
+          "url": "https://mixdrop.top/f/03v94m1kbvpkqx",
+          "embedurl": "https://mixdrop.top/e/03v94m1kbvpkqx"
         }
       },
       "vinovo": {
         "status": 400,
         "msg": "Missing parameters",
-        "server_time": "2026-08-05 16:23:37",
+        "server_time": "2026-08-05 17:44:55",
         "result": null
       },
       "clicknupload": {
         "error": "Failed to retrieve upload server URL"
       },
       "uqload": {
-        "msg": "OK",
-        "status": 200,
-        "files": [
-          {
-            "filecode": "34zucruiqpej",
-            "filename": "TopCinema_تــوب_سينمـــا.mp4",
-            "status": "OK"
-          }
-        ]
+        "error": "read ECONNRESET"
       }
     }
   }
