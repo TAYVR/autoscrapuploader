@@ -2,15 +2,15 @@
   {
     "tmdbId": 1341658889,
     "title": "TopCinema\nتــوب سينمـــا",
-    "movieUrl": "https://topcinemaa.co/%d9%81%d9%8a%d9%84%d9%85-lockbox-2026-%d9%85%d8%aa%d8%b1%d8%ac%d9%85-%d8%a7%d9%88%d9%86-%d9%84%d8%a7%d9%8a%d9%86/",
-    "hlsUrl": "https://streamwish.fun/stream/gbGmxUc4W6NlDfebRfwWGA/kjhhiuahiuhgihdf/1785994158/73657258/master.m3u8",
+    "movieUrl": "https://topcinemaa.co/%d9%81%d9%8a%d9%84%d9%85-evil-dead-burn-2026-%d9%85%d8%aa%d8%b1%d8%ac%d9%85-%d8%a7%d9%88%d9%86-%d9%84%d8%a7%d9%8a%d9%86/",
+    "hlsUrl": "https://streamwish.fun/stream/vbsaz6_3W4k6MlKBryvEpw/kjhhiuahiuhgihdf/1786000884/73657211/master.m3u8",
     "uploads": {
       "streamwish": {
         "msg": "OK",
         "status": 200,
         "files": [
           {
-            "filecode": "z9jso49dk0gp",
+            "filecode": "bwbag8qgqldo",
             "filename": "TopCinema_تــوب_سينمـــا.mp4",
             "status": "OK"
           }
@@ -22,7 +22,7 @@
         "status": 200,
         "files": [
           {
-            "filecode": "yw2h66ul020u",
+            "filecode": "8raatr2clfmk",
             "filename": "TopCinema_تــوب_سينمـــا.mp4",
             "status": "OK"
           }
@@ -31,15 +31,15 @@
       "mixdrop": {
         "success": true,
         "result": {
-          "fileref": "03v94m1kbvpkqx",
-          "url": "https://mixdrop.top/f/03v94m1kbvpkqx",
-          "embedurl": "https://mixdrop.top/e/03v94m1kbvpkqx"
+          "fileref": "7kr941gnf3w4on",
+          "url": "https://mixdrop.top/f/7kr941gnf3w4on",
+          "embedurl": "https://mixdrop.top/e/7kr941gnf3w4on"
         }
       },
       "vinovo": {
         "status": 400,
         "msg": "Missing parameters",
-        "server_time": "2026-08-05 17:44:55",
+        "server_time": "2026-08-05 19:46:04",
         "result": null
       },
       "clicknupload": {
