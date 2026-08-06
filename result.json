@@ -1,29 +1,29 @@
 [
   {
-    "tmdbId": 783732621,
-    "title": "فيلم Lucky Strike 2026 مترجم اون لاين",
-    "movieUrl": "https://topcinemaa.co/فيلم-lucky-strike-2026-مترجم-اون-لاين",
-    "hlsUrl": "https://streamwish.fun/stream/XHWDMWMgZjO8-uFydCFQHg/kjhhiuahiuhgihdf/1786032414/73657296/master.m3u8",
+    "tmdbId": 258745917,
+    "title": "فيلم Lockbox 2026 مترجم اون لاين",
+    "movieUrl": "https://topcinemaa.co/فيلم-lockbox-2026-مترجم-اون-لاين",
+    "hlsUrl": "https://streamwish.fun/stream/gR7ER_BEHqcvreQmwwAZ7Q/kjhhiuahiuhgihdf/1786035352/73657258/master.m3u8",
     "uploads": {
       "streamwish": {
         "msg": "OK",
         "status": 200,
         "files": [
           {
-            "filecode": "iqmhxsbpgua9",
-            "filename": "فيلم_Lucky_Strike_2026_مترجم_اون_لاين.mp4",
+            "filecode": "fstjvw31ga5f",
+            "filename": "فيلم_Lockbox_2026_مترجم_اون_لاين.mp4",
             "status": "OK"
           }
         ]
       },
-      "doodstream": "<HTML><BODY><Form name='F1' action='https://fs-public.intconnect.net/' target='_parent' method='POST'><textarea name=\"op\">upload_result</textarea><textarea name=\"fn\">فيلم_Lucky_Strike_2026_مترجم_اون_لاين.mp4</textarea><textarea name=\"st\">0:0:0:You are not allowed to upload files</textarea></Form><Script>document.location='javascript:false';document.F1.submit();</Script></BODY></HTML>",
+      "doodstream": "<HTML><BODY><Form name='F1' action='https://fs-public.intconnect.net/' target='_parent' method='POST'><textarea name=\"op\">upload_result</textarea><textarea name=\"fn\">فيلم_Lockbox_2026_مترجم_اون_لاين.mp4</textarea><textarea name=\"st\">0:0:0:You are not allowed to upload files</textarea></Form><Script>document.location='javascript:false';document.F1.submit();</Script></BODY></HTML>",
       "earnvids": {
         "msg": "OK",
         "status": 200,
         "files": [
           {
-            "filecode": "hwtuyfn611sa",
-            "filename": "فيلم_Lucky_Strike_2026_مترجم_اون_لاين.mp4",
+            "filecode": "gnyu63cw6itn",
+            "filename": "فيلم_Lockbox_2026_مترجم_اون_لاين.mp4",
             "status": "OK"
           }
         ]
@@ -31,33 +31,36 @@
       "mixdrop": {
         "success": true,
         "result": {
-          "fileref": "03v9melkbdvw3e",
-          "url": "https://mixdrop.top/f/03v9melkbdvw3e",
-          "embedurl": "https://mixdrop.top/e/03v9melkbdvw3e"
+          "fileref": "wlnkdpw8fdjlqw",
+          "url": "https://mixdrop.top/f/wlnkdpw8fdjlqw",
+          "embedurl": "https://mixdrop.top/e/wlnkdpw8fdjlqw"
         }
       },
       "vinovo": {
         "status": 200,
         "msg": "OK",
-        "server_time": "2026-08-06 04:15:31",
+        "server_time": "2026-08-06 05:25:39",
         "result": {
-          "embed_url": "https://vinovo.to/e/19x7pqyni0wn67",
-          "download_url": "https://vinovo.to/d/19x7pqyni0wn67",
-          "filecode": "19x7pqyni0wn67",
-          "title": "فيلم_Lucky_Strike_2026_مترجم_اون_لاين",
+          "embed_url": "https://vinovo.to/e/9q2rppd7i8xjgd",
+          "download_url": "https://vinovo.to/d/9q2rppd7i8xjgd",
+          "filecode": "9q2rppd7i8xjgd",
+          "title": "فيلم_Lockbox_2026_مترجم_اون_لاين",
           "canplay": 0
         }
       },
-      "clicknupload": {
-        "error": "Failed to retrieve Clicknupload upload URL. Raw response: {\"upload_url\":\"https://apricot01.clicknupload.net/cgi-bin/upload.cgi\",\"status\":200,\"server_time\":\"2026-08-06 04:15:31\",\"sess_id\":\"uccf4aacp354at0z\",\"msg\":\"OK\"}"
-      },
+      "clicknupload": [
+        {
+          "file_code": "zcjvlvob6hxx",
+          "file_status": "OK"
+        }
+      ],
       "uqload": {
         "msg": "OK",
         "status": 200,
         "files": [
           {
-            "filecode": "8rb44ol97kbq",
-            "filename": "فيلم_Lucky_Strike_2026_مترجم_اون_لاين.mp4",
+            "filecode": "ucodkgflcky7",
+            "filename": "فيلم_Lockbox_2026_مترجم_اون_لاين.mp4",
             "status": "OK"
           }
         ]
