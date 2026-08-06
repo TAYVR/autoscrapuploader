@@ -30,39 +30,48 @@ async function initTables() {
     try {
         console.log('[TURSO] Initializing tables across sharded databases...');
 
-        // Database 1: Index Table
-        await db1Client.execute(`
-            CREATE TABLE IF NOT EXISTS movie_index (
-                tmdb_id INTEGER PRIMARY KEY,
-                title TEXT,
-                target_db TEXT,
-                created_at TEXT
-            );
-        `);
+        // Migrate each database to the append-only schema (every save = new row)
+        const shards = [
+            ['db1', db1Client],
+            ['db2', db2Client],
+            ['db3', db3Client]
+        ];
 
-        // Database 2: Data Shard 1
-        await db2Client.execute(`
-            CREATE TABLE IF NOT EXISTS movie_data (
-                tmdb_id INTEGER PRIMARY KEY,
-                title TEXT,
-                movie_url TEXT,
-                hls_url TEXT,
-                hosts_json TEXT,
-                created_at TEXT
-            );
-        `);
+        for (const [name, client] of shards) {
+            await client.execute(`CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, version INTEGER);`);
+            const meta = await client.execute(`SELECT version FROM schema_meta WHERE key = 'schema';`);
+            const current = (meta && meta.rows && meta.rows.length) ? Number(meta.rows[0].version) : 0;
 
-        // Database 3: Data Shard 2
-        await db3Client.execute(`
-            CREATE TABLE IF NOT EXISTS movie_data (
-                tmdb_id INTEGER PRIMARY KEY,
-                title TEXT,
-                movie_url TEXT,
-                hls_url TEXT,
-                hosts_json TEXT,
-                created_at TEXT
-            );
-        `);
+            if (current < 1) {
+                if (name === 'db1') {
+                    await client.execute(`DROP TABLE IF EXISTS movie_index;`);
+                    await client.execute(`
+                        CREATE TABLE IF NOT EXISTS movie_index (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            tmdb_id INTEGER,
+                            title TEXT,
+                            target_db TEXT,
+                            created_at TEXT
+                        );
+                    `);
+                } else {
+                    await client.execute(`DROP TABLE IF EXISTS movie_data;`);
+                    await client.execute(`
+                        CREATE TABLE IF NOT EXISTS movie_data (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            tmdb_id INTEGER,
+                            title TEXT,
+                            movie_url TEXT,
+                            hls_url TEXT,
+                            hosts_json TEXT,
+                            created_at TEXT
+                        );
+                    `);
+                }
+                await client.execute(`INSERT OR REPLACE INTO schema_meta (key, version) VALUES ('schema', 1);`);
+                console.log(`[TURSO] ${name}: migrated to append-only schema (v1).`);
+            }
+        }
 
         console.log('[TURSO] All database tables successfully initialized.');
     } catch (error) {
@@ -91,15 +100,15 @@ async function saveMovieRecord({ tmdbId, title, movieUrl, hlsUrl, uploads }) {
 
         const hostsJson = JSON.stringify(uploads);
 
-        // 1. Insert/Update Index in DB1
+        // 1. Append a new row to the Index in DB1 (never overwrite)
         await db1Client.execute({
-            sql: `INSERT OR REPLACE INTO movie_index (tmdb_id, title, target_db, created_at) VALUES (?, ?, ?, ?)`,
+            sql: `INSERT INTO movie_index (tmdb_id, title, target_db, created_at) VALUES (?, ?, ?, ?)`,
             args: [tmdbId, title || 'Unknown', targetDbName, createdAt]
         });
 
-        // 2. Insert/Update Data in Target Shard (DB2 or DB3)
+        // 2. Append a new row to the Data Shard (DB2 or DB3) (never overwrite)
         await targetClient.execute({
-            sql: `INSERT OR REPLACE INTO movie_data (tmdb_id, title, movie_url, hls_url, hosts_json, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+            sql: `INSERT INTO movie_data (tmdb_id, title, movie_url, hls_url, hosts_json, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
             args: [tmdbId, title || 'Unknown', movieUrl, hlsUrl, hostsJson, createdAt]
         });
 
@@ -110,10 +119,31 @@ async function saveMovieRecord({ tmdbId, title, movieUrl, hlsUrl, uploads }) {
     }
 }
 
+/**
+ * Checks whether a movie was already uploaded/saved before (dedup guard).
+ * Matches on the deterministic TMDB-ID hash OR the normalized title in the index.
+ */
+async function movieExists({ tmdbId, title }) {
+    try {
+        await initTables();
+        const norm = (title || '').toString().toLowerCase().trim();
+        const res = await db1Client.execute({
+            sql: `SELECT COUNT(*) AS count FROM movie_index WHERE tmdb_id = ? OR lower(title) = ?`,
+            args: [tmdbId, norm]
+        });
+        const count = (res && res.rows && res.rows.length) ? Number(res.rows[0].count) : 0;
+        return count > 0;
+    } catch (error) {
+        console.error('[TURSO ERROR] movieExists check failed:', error.message);
+        return false;
+    }
+}
+
 module.exports = {
     db1Client,
     db2Client,
     db3Client,
     initTables,
-    saveMovieRecord
+    saveMovieRecord,
+    movieExists
 };

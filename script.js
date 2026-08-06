@@ -4,7 +4,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const { saveMovieRecord } = require('./turso');
+const { saveMovieRecord, movieExists } = require('./turso');
 
 puppeteer.use(StealthPlugin());
 
@@ -12,6 +12,18 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
 const STATE_PATH = path.join(__dirname, 'state.json');
+
+/**
+ * Normalize a movie URL so the same movie is never scraped twice,
+ * even if it appears with trailing slashes or different URL-encoding.
+ */
+function canonicalUrl(url) {
+    try {
+        return decodeURIComponent(url).replace(/\/+$/, '').toLowerCase();
+    } catch (e) {
+        return (url || '').replace(/\/+$/, '').toLowerCase();
+    }
+}
 
 /**
  * Load state tracking file
@@ -157,20 +169,20 @@ async function uploadToHost(hostName, hostConfig, filePath) {
             const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
-            if (serverRes.data && serverRes.data.result) {
+            if (serverRes.data && typeof serverRes.data.result === 'string' && serverRes.data.result.length > 0) {
                 uploadUrl = serverRes.data.result;
             } else {
-                throw new Error('Failed to retrieve upload server URL');
+                throw new Error(`Failed to retrieve upload server URL. Raw response: ${JSON.stringify(serverRes.data).slice(0, 200)}`);
             }
             form.append('key', hostConfig.key);
         } else if (hostConfig.type === 'dood') {
             const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
-            if (serverRes.data && serverRes.data.result) {
+            if (serverRes.data && typeof serverRes.data.result === 'string' && serverRes.data.result.length > 0) {
                 uploadUrl = serverRes.data.result;
             } else {
-                throw new Error('Failed to retrieve Doodstream upload URL');
+                throw new Error(`Failed to retrieve Doodstream upload URL. Raw response: ${JSON.stringify(serverRes.data).slice(0, 200)}`);
             }
             form.append('key', hostConfig.key);
         } else if (hostConfig.type === 'mixdrop') {
@@ -179,7 +191,7 @@ async function uploadToHost(hostName, hostConfig, filePath) {
             form.append('key', hostConfig.key);
         }
 
-        form.append('file', fs.createReadStream(filePath));
+        form.append('file', fs.createReadStream(filePath), { filename: path.basename(filePath) });
 
         console.log(`[UPLOAD] Starting upload to ${hostName}...`);
         const uploadRes = await axios.post(uploadUrl, form, {
@@ -270,8 +282,9 @@ async function scrapeTopcinemaaMovies(state) {
 
             let addedFromThisPage = 0;
             for (const link of foundLinks) {
-                if (!state.processedMovies.includes(link) && !newMovies.includes(link)) {
-                    newMovies.push(link);
+                const canon = canonicalUrl(link);
+                if (!state.processedMovies.includes(canon) && !newMovies.includes(canon)) {
+                    newMovies.push(canon);
                     addedFromThisPage++;
                     if (newMovies.length === limit) break;
                 }
@@ -327,16 +340,52 @@ async function extractMovieMetadataAndStream(movieUrl) {
 
         await page.goto(movieUrl, { waitUntil: 'networkidle2', timeout: 45000 }).catch(() => { });
 
-        // Extract title & year
+        // Extract title & year. Prefer the URL slug (reliable) over the h1,
+        // because the first h1 on the page is often the site header, not the movie.
+        const titleFromSlug = (url) => {
+            try {
+                const decoded = decodeURIComponent(url);
+                const last = decoded.split('/').filter(Boolean).pop() || decoded;
+                let t = last.replace(/فيلم|مترجم|اون|لاين|مشاهدة|تحميل/gi, ' ');
+                t = t.replace(/[-_]+/g, ' ').replace(/\d{4}\b/g, '').trim();
+                if (t && t.length >= 2) return t;
+            } catch (e) { }
+            return '';
+        };
+
+        const slugTitle = titleFromSlug(movieUrl);
         const titleData = await page.evaluate(() => {
-            const h1 = document.querySelector('h1.post-title, .MasterSingleMeta h1, h1');
-            const text = h1 ? h1.innerText.trim() : '';
+            const pick = (...selectors) => {
+                for (const sel of selectors) {
+                    const el = document.querySelector(sel);
+                    if (el) {
+                        const t = (el.innerText || '').trim();
+                        if (t) return t;
+                    }
+                }
+                return '';
+            };
+            let text = pick('h1.post-title', '.post-title', '.MasterSingleMeta h1', '.Single-Beta h1', 'article h1');
+            if (!text) {
+                // Fallback: longest heading on the page (typical movie title is the longest)
+                let best = '';
+                document.querySelectorAll('h1, h2').forEach(h => {
+                    const t = (h.innerText || '').trim();
+                    if (t.length > best.length) best = t;
+                });
+                text = best;
+            }
             const yearMatch = text.match(/\b(19\d\d|20\d\d)\b/);
             return {
                 title: text || 'Unknown Movie',
                 year: yearMatch ? yearMatch[1] : null
             };
         });
+
+        // Use the slug when the h1 is missing or just the site brand header
+        if (!titleData.title || titleData.title.length < 3 || /توب سينما|topcinema|cinemaa/i.test(titleData.title)) {
+            titleData.title = slugTitle || titleData.title;
+        }
 
         const watchUrl = await page.evaluate(() => {
             const a = document.querySelector('a.watch, a[href*="/watch/"]');
@@ -455,6 +504,21 @@ async function main() {
         }
         console.log(`[HLS] Extracted stream URL: ${hlsUrl}`);
 
+        // Resolve TMDB ID and check the database BEFORE downloading/uploading,
+        // so an already-uploaded movie is never downloaded or uploaded again.
+        const tmdbId = await resolveTmdbId(metadata.title, metadata.year);
+        console.log(`[TMDB] Resolved TMDB ID: ${tmdbId} for "${metadata.title}"`);
+
+        const alreadySaved = await movieExists({ tmdbId, title: metadata.title });
+        if (alreadySaved) {
+            console.log(`[SKIP] "${metadata.title}" already exists in database, skipping download & upload.`);
+            if (!state.processedMovies.includes(movieUrl)) {
+                state.processedMovies.push(movieUrl);
+            }
+            saveState(state);
+            continue;
+        }
+
         const safeTitle = (metadata.title || `output_${i}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, '').trim().replace(/\s+/g, '_');
         const outputVideo = `${safeTitle}.mp4`;
         console.log('[HLS-DL] Downloading stream via Node.js HLS downloader...');
@@ -471,10 +535,6 @@ async function main() {
             const res = await uploadToHost(hostName, hostConfig, outputVideo);
             movieUploadResults[hostName] = res;
         }
-
-        // Resolve TMDB ID for database indexing
-        const tmdbId = await resolveTmdbId(metadata.title, metadata.year);
-        console.log(`[TMDB] Resolved TMDB ID: ${tmdbId} for "${metadata.title}"`);
 
         // Save to Turso Sharded Databases
         await saveMovieRecord({
