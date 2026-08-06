@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const axios = require('axios');
 const FormData = require('form-data');
 const puppeteer = require('puppeteer-extra');
@@ -144,6 +145,36 @@ async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
 
     const stats = fs.statSync(outputPath);
     console.log(`[HLS-DL] Download complete: ${outputPath} (${(stats.size / 1024 / 1024).toFixed(1)} MB)`);
+}
+
+/**
+ * Remux a raw MPEG-TS file (concatenated HLS segments) into a real MP4 container.
+ * Uses ffmpeg with stream copy (no re-encoding => fast, lossless), and converts
+ * HE-AAC to AAC via the aac_adtstoasc bitstream filter when needed.
+ */
+async function remuxTsToMp4(input, output) {
+    return new Promise((resolve, reject) => {
+        let stderr = '';
+        const args = [
+            '-y',
+            '-i', input,
+            '-c', 'copy',
+            '-bsf:a', 'aac_adtstoasc',
+            '-movflags', '+faststart',
+            output
+        ];
+        const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+        proc.stderr.on('data', (d) => { stderr += d.toString(); });
+        proc.on('error', (err) => reject(new Error(`ffmpeg not available: ${err.message}`)));
+        proc.on('close', (code) => {
+            if (code === 0) {
+                console.log(`[FFMPEG] Remuxed ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
+                resolve();
+            } else {
+                reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-300)}`));
+            }
+        });
+    });
 }
 
 
@@ -571,13 +602,24 @@ async function main() {
         }
 
         const safeTitle = (metadata.title || `output_${i}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, '').trim().replace(/\s+/g, '_');
+        const rawTs = `${safeTitle}.ts`;
         const outputVideo = `${safeTitle}.mp4`;
         console.log('[HLS-DL] Downloading stream via Node.js HLS downloader...');
 
         try {
-            await downloadHlsToFile(hlsUrl, metadata.iframeUrl, outputVideo);
+            await downloadHlsToFile(hlsUrl, metadata.iframeUrl, rawTs);
         } catch (err) {
             console.error('[HLS-DL ERROR] Download failed:', err.message);
+            if (fs.existsSync(rawTs)) fs.unlinkSync(rawTs);
+            continue;
+        }
+
+        // Remux raw TS -> real MP4 so hosts can read it (mixdrop/uqload/vinovo reject TS-data in .mp4)
+        try {
+            await remuxTsToMp4(rawTs, outputVideo);
+        } catch (err) {
+            console.error('[FFMPEG ERROR] Remux failed:', err.message);
+            if (fs.existsSync(rawTs)) fs.unlinkSync(rawTs);
             continue;
         }
 
@@ -608,9 +650,11 @@ async function main() {
             uploads: movieUploadResults
         });
 
-        if (fs.existsSync(outputVideo)) {
-            fs.unlinkSync(outputVideo);
-            console.log(`[CLEANUP] Deleted local file ${outputVideo}`);
+        for (const f of [rawTs, outputVideo]) {
+            if (fs.existsSync(f)) {
+                fs.unlinkSync(f);
+                console.log(`[CLEANUP] Deleted local file ${f}`);
+            }
         }
 
         saveState(state);
