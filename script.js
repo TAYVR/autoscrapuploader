@@ -100,26 +100,46 @@ async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
     if (segments.length === 0) throw new Error('No segments found in stream playlist');
     console.log(`[HLS-DL] Downloading ${segments.length} segments...`);
 
-    // Step 4: Download and concatenate segments
+    // Step 4: Download and concatenate segments with per-segment retry + backpressure
     const writeStream = fs.createWriteStream(outputPath);
+
+    // Fetch one segment, retrying on transient errors (aborts, resets, timeouts)
+    const fetchSegment = async (url, attempt = 1) => {
+        try {
+            return await axios.get(url, {
+                headers,
+                responseType: 'arraybuffer',
+                timeout: 90000
+            });
+        } catch (e) {
+            if (attempt < 5) {
+                process.stdout.write(`\r[HLS-DL] Segment retry (attempt ${attempt}/5)... `);
+                await new Promise(r => setTimeout(r, 3000 * attempt));
+                return fetchSegment(url, attempt + 1);
+            }
+            throw e;
+        }
+    };
+
+    // Wait for the write stream to drain so we never overflow its internal buffer
+    const writeAndDrain = async (buf) => {
+        if (!writeStream.write(buf)) {
+            await new Promise(resolve => writeStream.once('drain', resolve));
+        }
+    };
+
     for (let idx = 0; idx < segments.length; idx++) {
         const segUrl = segments[idx];
         if ((idx + 1) % 20 === 0 || idx === 0) {
             process.stdout.write(`\r[HLS-DL] Segment ${idx + 1}/${segments.length}`);
         }
-        const segData = await axios.get(segUrl, {
-            headers,
-            responseType: 'arraybuffer',
-            timeout: 60000
-        });
-        writeStream.write(Buffer.from(segData.data));
+        const segData = await fetchSegment(segUrl);
+        await writeAndDrain(Buffer.from(segData.data));
     }
     console.log('');
 
     await new Promise((resolve, reject) => {
-        writeStream.end();
-        writeStream.on('finish', resolve);
-        writeStream.on('error', reject);
+        writeStream.end((err) => err ? reject(err) : resolve());
     });
 
     const stats = fs.statSync(outputPath);
