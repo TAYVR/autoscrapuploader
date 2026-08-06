@@ -209,12 +209,12 @@ async function uploadToHost(hostName, hostConfig, filePath) {
             }
             form.append('api_key', hostConfig.key);
         } else if (hostConfig.type === 'clickn') {
-            // Clicknupload: Step 1 returns 'result' (upload URL) AND 'sess_id';
+            // Clicknupload: Step 1 returns 'upload_url' (real) or 'result' (docs) + 'sess_id';
             // Step 2 upload uses sess_id + utype=prem + file_0 (NOT 'key')
             const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
-            const url = serverRes.data && serverRes.data.result;
+            const url = serverRes.data && (serverRes.data.upload_url || serverRes.data.result);
             const sessId = serverRes.data && serverRes.data.sess_id;
             if (!url || typeof url !== 'string' || url.length === 0 || !sessId) {
                 throw new Error(`Failed to retrieve Clicknupload upload URL. Raw response: ${JSON.stringify(serverRes.data).slice(0, 200)}`);
