@@ -163,9 +163,11 @@ async function resolveTmdbId(title, year) {
 async function uploadToHost(hostName, hostConfig, filePath) {
     const form = new FormData();
     let uploadUrl = '';
+    let fileField = 'file';
 
     try {
-        if (hostConfig.type === 'xfs' || hostConfig.type === 'clickn' || hostConfig.type === 'vinovo') {
+        if (hostConfig.type === 'xfs' || hostConfig.type === 'dood' || hostConfig.type === 'uqloadxfs') {
+            // Clicknupload/docs en XFS: Step 1 get upload server (with key), Step 2 POST key + file
             const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
@@ -175,34 +177,63 @@ async function uploadToHost(hostName, hostConfig, filePath) {
                 throw new Error(`Failed to retrieve upload server URL. Raw response: ${JSON.stringify(serverRes.data).slice(0, 200)}`);
             }
             form.append('key', hostConfig.key);
-        } else if (hostConfig.type === 'dood') {
+        } else if (hostConfig.type === 'vinovo') {
+            // Vinovo: Step 1 GET with 'key', Step 2 POST form field is 'api_key'
             const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
             if (serverRes.data && typeof serverRes.data.result === 'string' && serverRes.data.result.length > 0) {
                 uploadUrl = serverRes.data.result;
             } else {
-                throw new Error(`Failed to retrieve Doodstream upload URL. Raw response: ${JSON.stringify(serverRes.data).slice(0, 200)}`);
+                throw new Error(`Failed to retrieve Vinovo upload server URL. Raw response: ${JSON.stringify(serverRes.data).slice(0, 200)}`);
             }
-            form.append('key', hostConfig.key);
+            form.append('api_key', hostConfig.key);
+        } else if (hostConfig.type === 'clickn') {
+            // Clicknupload: Step 1 returns 'result' (upload URL) AND 'sess_id';
+            // Step 2 upload uses sess_id + utype=prem + file_0 (NOT 'key')
+            const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
+                params: { key: hostConfig.key }
+            });
+            const url = serverRes.data && serverRes.data.result;
+            const sessId = serverRes.data && serverRes.data.sess_id;
+            if (!url || typeof url !== 'string' || url.length === 0 || !sessId) {
+                throw new Error(`Failed to retrieve Clicknupload upload URL. Raw response: ${JSON.stringify(serverRes.data).slice(0, 200)}`);
+            }
+            uploadUrl = url;
+            form.append('sess_id', sessId);
+            form.append('utype', 'prem');
+            fileField = 'file_0';
         } else if (hostConfig.type === 'mixdrop') {
             uploadUrl = hostConfig.api;
             form.append('email', hostConfig.email);
             form.append('key', hostConfig.key);
         }
 
-        form.append('file', fs.createReadStream(filePath), { filename: path.basename(filePath) });
+        form.append(fileField, fs.createReadStream(filePath), { filename: path.basename(filePath) });
 
         console.log(`[UPLOAD] Starting upload to ${hostName}...`);
-        const uploadRes = await axios.post(uploadUrl, form, {
-            headers: form.getHeaders(),
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            timeout: 3600000
-        });
-
-        console.log(`[UPLOAD] Success on ${hostName}:`, uploadRes.data);
-        return uploadRes.data;
+        let lastError = null;
+        const maxAttempts = 3;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const uploadRes = await axios.post(uploadUrl, form, {
+                    headers: form.getHeaders(),
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity,
+                    timeout: 3600000
+                });
+                console.log(`[UPLOAD] Success on ${hostName}:`, uploadRes.data);
+                return uploadRes.data;
+            } catch (e) {
+                lastError = e;
+                if (attempt < maxAttempts) {
+                    console.log(`[UPLOAD] ${hostName} attempt ${attempt} failed (${e.message}), retrying...`);
+                    await new Promise(r => setTimeout(r, 15000 * attempt));
+                }
+            }
+        }
+        console.error(`[UPLOAD ERROR] Failed on ${hostName}:`, lastError.message);
+        return { error: lastError.message };
     } catch (error) {
         console.error(`[UPLOAD ERROR] Failed on ${hostName}:`, error.message);
         return { error: error.message };
