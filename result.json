@@ -1,52 +1,70 @@
 [
   {
-    "tmdbId": 152980418,
-    "title": "فيلم Wild Sing 2026 مترجم اون لاين",
-    "movieUrl": "https://topcinemaa.co/فيلم-wild-sing-2026-مترجم-اون-لاين",
-    "hlsUrl": "https://streamwish.fun/stream/VlJsW5vKje3C3tErpqJ6qQ/kjhhiuahiuhgihdf/1786104843/73667854/master.m3u8",
+    "tmdbId": 2028945901,
+    "title": "فيلم The Currents 2025 مترجم اون لاين",
+    "movieUrl": "https://topcinemaa.co/فيلم-the-currents-2025-مترجم-اون-لاين",
+    "hlsUrl": "https://streamwish.fun/stream/xu6ttHQfrmsMe1Uvh0vLYQ/kjhhiuahiuhgihdf/1786108180/73646736/master.m3u8",
     "uploads": {
-      "vinovo": {
+      "mixdrop": {
         "success": true,
-        "filecode": "19x7xk5eu334ww8",
-        "embed_url": "https://vinovo.to/e/19x7xk5eu334ww8",
-        "download_url": null,
-        "polled": false
+        "result": {
+          "fileref": "eln6nn0efqxvkxk",
+          "url": "https://mixdrop.top/f/eln6nn0efqxvkxk",
+          "embedurl": "https://mixdrop.top/e/eln6nn0efqxvkxk"
+        }
       },
-      "uqload": {
-        "success": true,
-        "filecode": "0hz7ztnwskrx",
-        "embed_url": null,
-        "download_url": null,
-        "polled": false
+      "doodstream": "<HTML><BODY><Form name='F1' action='https://fs-public.intconnect.net/' target='_parent' method='POST'><textarea name=\"op\">upload_result</textarea><textarea name=\"fn\">فيلم_The_Currents_2025_مترجم_اون_لاين.mp4</textarea><textarea name=\"st\">0:0:0:You are not allowed to upload files</textarea></Form><Script>document.location='javascript:false';document.F1.submit();</Script></BODY></HTML>",
+      "vinovo": {
+        "status": 200,
+        "msg": "OK",
+        "server_time": "2026-08-07 01:19:48",
+        "result": {
+          "embed_url": "https://vinovo.to/e/q7k3kk3qan9oke",
+          "download_url": "https://vinovo.to/d/q7k3kk3qan9oke",
+          "filecode": "q7k3kk3qan9oke",
+          "title": "فيلم_The_Currents_2025_مترجم_اون_لاين",
+          "canplay": 0
+        }
       },
       "earnvids": {
-        "success": true,
-        "filecode": "uq2cyuabsbhc",
-        "embed_url": null,
-        "download_url": null,
-        "polled": false
-      },
-      "doodstream": {
-        "success": true,
-        "filecode": "656mevvgjglq",
-        "embed_url": null,
-        "download_url": null,
-        "polled": false
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "7hpeikyzsv63",
+            "filename": "فيلم_The_Currents_2025_مترجم_اون_لاين.mp4",
+            "status": "OK"
+          }
+        ]
       },
       "streamwish": {
-        "success": true,
-        "filecode": "wwbmx6gx2jlx",
-        "embed_url": null,
-        "download_url": null,
-        "polled": false
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "ilmnr116dnv1",
+            "filename": "فيلم_The_Currents_2025_مترجم_اون_لاين.mp4",
+            "status": "OK"
+          }
+        ]
       },
-      "clicknupload": {
-        "success": true,
-        "filecode": "i4by90dehkex",
-        "embed_url": null,
-        "download_url": null,
-        "polled": false
-      }
+      "uqload": {
+        "msg": "OK",
+        "status": 200,
+        "files": [
+          {
+            "filecode": "cxtd78qm53a1",
+            "filename": "فيلم_The_Currents_2025_مترجم_اون_لاين.mp4",
+            "status": "OK"
+          }
+        ]
+      },
+      "clicknupload": [
+        {
+          "file_code": "8k7naumfvqti",
+          "file_status": "OK"
+        }
+      ]
     }
   }
 ]
