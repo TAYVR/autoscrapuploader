@@ -1,69 +1,51 @@
 [
   {
-    "tmdbId": 1214797144,
-    "title": "فيلم Spider-Man: Brand New Day 2026 مترجم اون لاين",
-    "movieUrl": "https://topcinemaa.co/فيلم-spider-man-brand-new-day-2026-مترجم-اون-لاين-1",
-    "hlsUrl": "https://streamwish.fun/stream/PYftNS4lvc1kHmBaYIKbUw/kjhhiuahiuhgihdf/1786064038/73657618/master.m3u8",
+    "tmdbId": 152980418,
+    "title": "فيلم Wild Sing 2026 مترجم اون لاين",
+    "movieUrl": "https://topcinemaa.co/فيلم-wild-sing-2026-مترجم-اون-لاين",
+    "hlsUrl": "https://streamwish.fun/stream/VlJsW5vKje3C3tErpqJ6qQ/kjhhiuahiuhgihdf/1786104843/73667854/master.m3u8",
     "uploads": {
-      "streamwish": {
-        "msg": "OK",
-        "status": 200,
-        "files": [
-          {
-            "filecode": "ojoy8i4vn428",
-            "filename": "فيلم_Spider-Man_Brand_New_Day_2026_مترجم_اون_لاين.mp4",
-            "status": "OK"
-          }
-        ]
-      },
-      "doodstream": "<HTML><BODY><Form name='F1' action='https://fs-public.intconnect.net/' target='_parent' method='POST'><textarea name=\"op\">upload_result</textarea><textarea name=\"fn\">فيلم_Spider-Man_Brand_New_Day_2026_مترجم_اون_لاين.mp4</textarea><textarea name=\"st\">0:0:0:You are not allowed to upload files</textarea></Form><Script>document.location='javascript:false';document.F1.submit();</Script></BODY></HTML>",
-      "earnvids": {
-        "msg": "OK",
-        "status": 200,
-        "files": [
-          {
-            "filecode": "yhjtrbecqjcu",
-            "filename": "فيلم_Spider-Man_Brand_New_Day_2026_مترجم_اون_لاين.mp4",
-            "status": "OK"
-          }
-        ]
-      },
-      "mixdrop": {
-        "success": true,
-        "result": {
-          "fileref": "mkd1zqe9sdm3qr",
-          "url": "https://mixdrop.top/f/mkd1zqe9sdm3qr",
-          "embedurl": "https://mixdrop.top/e/mkd1zqe9sdm3qr"
-        }
-      },
       "vinovo": {
-        "status": 200,
-        "msg": "OK",
-        "server_time": "2026-08-06 13:14:14",
-        "result": {
-          "embed_url": "https://vinovo.to/e/9q2rnw01up8x49",
-          "download_url": "https://vinovo.to/d/9q2rnw01up8x49",
-          "filecode": "9q2rnw01up8x49",
-          "title": "فيلم_Spider-Man_Brand_New_Day_2026_مترجم_اون_لاين",
-          "canplay": 0
-        }
+        "success": true,
+        "filecode": "19x7xk5eu334ww8",
+        "embed_url": "https://vinovo.to/e/19x7xk5eu334ww8",
+        "download_url": null,
+        "polled": false
       },
-      "clicknupload": [
-        {
-          "file_code": "gz4185fbkqmq",
-          "file_status": "OK"
-        }
-      ],
       "uqload": {
-        "msg": "OK",
-        "status": 200,
-        "files": [
-          {
-            "filecode": "eer64ehv1kkd",
-            "filename": "فيلم_Spider-Man_Brand_New_Day_2026_مترجم_اون_لاين.mp4",
-            "status": "OK"
-          }
-        ]
+        "success": true,
+        "filecode": "0hz7ztnwskrx",
+        "embed_url": null,
+        "download_url": null,
+        "polled": false
+      },
+      "earnvids": {
+        "success": true,
+        "filecode": "uq2cyuabsbhc",
+        "embed_url": null,
+        "download_url": null,
+        "polled": false
+      },
+      "doodstream": {
+        "success": true,
+        "filecode": "656mevvgjglq",
+        "embed_url": null,
+        "download_url": null,
+        "polled": false
+      },
+      "streamwish": {
+        "success": true,
+        "filecode": "wwbmx6gx2jlx",
+        "embed_url": null,
+        "download_url": null,
+        "polled": false
+      },
+      "clicknupload": {
+        "success": true,
+        "filecode": "i4by90dehkex",
+        "embed_url": null,
+        "download_url": null,
+        "polled": false
       }
     }
   }
