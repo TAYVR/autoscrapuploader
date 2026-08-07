@@ -10,7 +10,8 @@
             "api": "https://doodapi.com/api",
             "key": "574750e0gkg545cqr54gpj",
             "type": "dood",
-            "remote": false
+            "remote": false,
+            "enabled": false
         },
         "earnvids": {
             "api": "https://earnvidsapi.com/api",
