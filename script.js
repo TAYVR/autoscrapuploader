@@ -671,7 +671,8 @@ async function main() {
         }
 
         // Decide which hosts need a local file (no remote upload API) vs remote URL upload
-        const hostsWithLocalUpload = Object.values(CONFIG.hosts).filter(h => h.remote !== true);
+        const activeHosts = Object.entries(CONFIG.hosts).filter(([, h]) => h.enabled !== false);
+        const hostsWithLocalUpload = activeHosts.filter(([, h]) => h.remote !== true);
         const needsLocalFile = hostsWithLocalUpload.length > 0;
 
         const safeTitle = (metadata.title || `output_${i}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, '').trim().replace(/\s+/g, '_');
@@ -693,7 +694,7 @@ async function main() {
         }
 
         const movieUploadResults = {};
-        for (const [hostName, hostConfig] of Object.entries(CONFIG.hosts)) {
+        for (const [hostName, hostConfig] of activeHosts) {
             if (hostConfig.remote === true) {
                 movieUploadResults[hostName] = await uploadRemoteToHost(hostName, hostConfig, hlsUrl);
             } else {

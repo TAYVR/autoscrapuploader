@@ -22,9 +22,10 @@
             "api": "https://ul.mixdrop.ag/api",
             "key": "tKDSypNMSQ2dYYz",
             "email": "pp7426912@gmail.com",
-            "type": "mixdrop"
-        },
-        "vinovo": {
+            "type": "mixdrop",
+            "remote": false,
+            "enabled": false
+        },        "vinovo": {
             "api": "https://api.vinovo.si/api",
             "key": "1841f97685c80022a4b1685f429888",
             "type": "vinovo",
