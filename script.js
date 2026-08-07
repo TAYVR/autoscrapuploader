@@ -148,9 +148,80 @@ async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
 }
 
 /**
- * Remux a raw MPEG-TS file (concatenated HLS segments) into a real MP4 container.
- * Uses ffmpeg with stream copy (no re-encoding => fast, lossless), and converts
- * HE-AAC to AAC via the aac_adtstoasc bitstream filter when needed.
+ * Probe a media file with ffprobe and return stream/format info.
+ * Resolves { hasVideo, hasAudio, videoCodec, audioCodec, duration } or { error }.
+ */
+function probeWithFfprobe(filePath) {
+    return new Promise((resolve) => {
+        let out = '';
+        let err = '';
+        const proc = spawn('ffprobe', [
+            '-v', 'error',
+            '-print_format', 'json',
+            '-show_format',
+            '-show_streams',
+            filePath
+        ], { stdio: ['ignore', 'pipe', 'pipe'] });
+        proc.stdout.on('data', (d) => { out += d.toString(); });
+        proc.stderr.on('data', (d) => { err += d.toString(); });
+        proc.on('error', (e) => resolve({ error: `ffprobe not available: ${e.message}` }));
+        proc.on('close', (code) => {
+            if (code !== 0) {
+                return resolve({ error: `ffprobe exited with code ${code}: ${err.slice(-200)}` });
+            }
+            try {
+                const data = JSON.parse(out);
+                const streams = (data && data.streams) || [];
+                const video = streams.find(s => s.codec_type === 'video');
+                const audio = streams.find(s => s.codec_type === 'audio');
+                const duration = Number(data.format && data.format.duration);
+                resolve({
+                    hasVideo: !!video,
+                    hasAudio: !!audio,
+                    videoCodec: (video && video.codec_name) || null,
+                    audioCodec: (audio && audio.codec_name) || null,
+                    duration: isFinite(duration) ? duration : 0
+                });
+            } catch (parseErr) {
+                resolve({ error: `Could not parse ffprobe output: ${parseErr.message}` });
+            }
+        });
+    });
+}
+
+/**
+ * Validate that a generated MP4 has a real video stream, a non-zero duration
+ * and no format-level corruption, BEFORE it is uploaded anywhere.
+ * Returns { valid, duration, videoCodec, audioCodec } on success,
+ * { valid:false, error, skipped:true } when ffprobe is unavailable (cannot verify,
+ * so uploads should still proceed), or { valid:false, error } when the file is bad.
+ */
+async function verifyFileIntegrity(filePath) {
+    if (!fs.existsSync(filePath)) {
+        return { valid: false, error: `File not found: ${filePath}` };
+    }
+    const probe = await probeWithFfprobe(filePath);
+    if (probe.error) {
+        console.log(`[VERIFY] Cannot probe ${filePath} (${probe.error}) - skipping validation, proceeding anyway.`);
+        return { valid: false, error: probe.error, skipped: true };
+    }
+    if (!probe.hasVideo) {
+        return { valid: false, error: 'No video stream found in output file' };
+    }
+    if (!(probe.duration > 0.5)) {
+        return { valid: false, error: `Invalid duration (${probe.duration}) in output file` };
+    }
+    console.log(`[VERIFY] OK: video=${probe.videoCodec}, audio=${probe.audioCodec || 'none'}, duration=${probe.duration.toFixed(1)}s`);
+    return { valid: true, duration: probe.duration, videoCodec: probe.videoCodec, audioCodec: probe.audioCodec };
+}
+
+/**
+ * Remux a raw MPEG-TS file (concatenated HLS segments) into a standard, streaming-
+ * optimized MP4 and validate it before returning. Strategy:
+ *   1. Stream-copy (fast, lossless) when input is already H.264 + AAC => compliant.
+ *   2. Otherwise (or if the copied output fails validation) re-encode with libx264
+ *      + AAC 128k, yuv420p and +faststart => guaranteed universal compatibility.
+ * Set FORCE_REENCODE=1 to always take the re-encode path.
  */
 async function remuxTsToMp4(input, output) {
     const run = (args) => new Promise((resolve, reject) => {
@@ -158,19 +229,54 @@ async function remuxTsToMp4(input, output) {
         const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
         proc.stderr.on('data', (d) => { stderr += d.toString(); });
         proc.on('error', (err) => reject(new Error(`ffmpeg not available: ${err.message}`)));
-        proc.on('close', (code) => code === 0 ? resolve() : reject(new Error(stderr.slice(-300))));
+        proc.on('close', (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(stderr.slice(-500)));
+        });
     });
 
-    const withBsf = ['-y', '-i', input, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', '-movflags', '+faststart', output];
-    const plain = ['-y', '-i', input, '-c', 'copy', '-movflags', '+faststart', output];
+    const probe = await probeWithFfprobe(input);
+    const forceReencode = process.env.FORCE_REENCODE === '1';
+    const compatible = probe && !probe.error && probe.hasVideo && probe.videoCodec === 'h264'
+        && (!probe.hasAudio || probe.audioCodec === 'aac');
 
-    try {
-        await run(withBsf);
-    } catch (err) {
-        console.log(`[FFMPEG] aac_adtstoasc failed (${String(err.message).split('\n')[0]}), retrying without bitstream filter...`);
-        await run(plain);
+    if (!forceReencode && compatible) {
+        console.log('[FFMPEG] Stream-copy path (input already H.264/AAC compatible)');
+        try {
+            await run(['-y', '-i', input, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', '-movflags', '+faststart', output]);
+            const check = await verifyFileIntegrity(output);
+            if (check.valid || check.skipped) {
+                console.log(`[FFMPEG] Remuxed (copy) ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
+                return;
+            }
+            console.log(`[FFMPEG] Stream-copy output invalid (${check.error}), falling back to re-encode...`);
+        } catch (e) {
+            console.log(`[FFMPEG] Stream-copy failed (${String(e.message).split('\n')[0]}), falling back to re-encode...`);
+        }
     }
-    console.log(`[FFMPEG] Remuxed ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
+
+    const preset = process.env.FFMPEG_PRESET || 'fast';
+    const crf = process.env.FFMPEG_CRF || '23';
+    console.log(`[FFMPEG] Re-encoding (libx264 preset=${preset} crf=${crf}, aac 128k, yuv420p, faststart)...`);
+    await run([
+        '-y',
+        '-i', input,
+        '-c:v', 'libx264',
+        '-preset', preset,
+        '-crf', crf,
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
+        output
+    ]);
+
+    const check = await verifyFileIntegrity(output);
+    if (!check.valid && !check.skipped) {
+        if (fs.existsSync(output)) fs.unlinkSync(output);
+        throw new Error(`Re-encoded MP4 failed validation: ${check.error}`);
+    }
+    console.log(`[FFMPEG] Remuxed (re-encode) ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
 }
 
 
