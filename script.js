@@ -252,14 +252,14 @@ async function uploadRemoteToHost(hostName, hostConfig, m3u8Url) {
         const embedUrl = digFor(data, ['embed_url', 'embedurl', 'url']);
         console.log(`[UPLOAD] ${hostName} accepted -> filecode ${fileCode}`);
 
-        // Best-effort: poll for the file to be ready (up to ~60s)
+        // Best-effort: quick poll for the file to be ready (~10s max)
         let info = null;
-        for (let attempt = 0; attempt < 6; attempt++) {
-            await new Promise(r => setTimeout(r, 10000));
+        for (let attempt = 0; attempt < 2; attempt++) {
+            await new Promise(r => setTimeout(r, 5000));
             try {
                 const pollRes = await axios.get(`${api}/file/info`, {
                     params: { key: hostConfig.key, file_code: fileCode },
-                    timeout: 30000
+                    timeout: 15000
                 });
                 const found = pollRes.data;
                 const dl = digFor(found, ['download_url', 'link']);
@@ -694,7 +694,7 @@ async function main() {
         }
 
         const movieUploadResults = {};
-        for (const [hostName, hostConfig] of activeHosts) {
+        await Promise.all(activeHosts.map(async ([hostName, hostConfig]) => {
             if (hostConfig.remote === true) {
                 movieUploadResults[hostName] = await uploadRemoteToHost(hostName, hostConfig, hlsUrl);
             } else {
@@ -704,7 +704,7 @@ async function main() {
                     movieUploadResults[hostName] = { error: 'Skipped: local file not available (download/remux failed)' };
                 }
             }
-        }
+        }));
 
         // Save to Turso Sharded Databases
         await saveMovieRecord({

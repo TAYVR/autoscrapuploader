@@ -40,6 +40,8 @@ async function analyze() {
 function isSuccess(host, val) {
     if (!val) return false;
     if (val.error) return false;
+    if (val.success === true) return true;
+    if (val.filecode || val.file_code || val.fileref) return true;
     if (val.msg && String(val.msg).toLowerCase().includes('not allowed')) return false;
     if (val.msg && String(val.msg).toLowerCase().includes('error')) return false;
     if (typeof val.status === 'number' && val.status >= 400) return false;
@@ -51,8 +53,6 @@ function isSuccess(host, val) {
     if (Array.isArray(val.result)) {
         return val.result.some(f => f && f.filecode);
     }
-    // XFS filecode
-    if (val.files && Array.isArray(val.files) && val.files[0] && val.files[0].filecode) return true;
     return false;
 }
 
