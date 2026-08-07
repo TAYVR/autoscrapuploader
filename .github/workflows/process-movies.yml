@@ -10,6 +10,14 @@ on:
         description: 'Number of movies to process in this run'
         required: false
         default: '1'
+      force_reencode:
+        description: 'Force full re-encode (1) or copy-when-compatible (0)'
+        required: false
+        default: '0'
+      ffmpeg_preset:
+        description: 'libx264 preset (ultrafast/fast/medium/slow)'
+        required: false
+        default: 'fast'
 
 jobs:
   scrape-and-upload:
@@ -39,6 +47,8 @@ jobs:
       - name: Run Movie Scraper Script
         env:
           BATCH_SIZE: ${{ github.event.inputs.batch_size || '1' }}
+          FORCE_REENCODE: ${{ github.event.inputs.force_reencode || '0' }}
+          FFMPEG_PRESET: ${{ github.event.inputs.ffmpeg_preset || 'fast' }}
           TARGET_BASE_URL: 'https://topcinemaa.co/'
         run: node script.js
 

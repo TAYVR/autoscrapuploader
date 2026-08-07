@@ -257,24 +257,55 @@ async function remuxTsToMp4(input, output) {
 
     const preset = process.env.FFMPEG_PRESET || 'fast';
     const crf = process.env.FFMPEG_CRF || '23';
-    console.log(`[FFMPEG] Re-encoding (libx264 preset=${preset} crf=${crf}, aac 128k, yuv420p, faststart)...`);
-    await run([
+    const evenDims = ['-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2'];
+    console.log(`[FFMPEG] Input codecs: video=${probe.videoCodec}, audio=${probe.audioCodec || 'none'} -> re-encode path`);
+
+    const full = [
         '-y',
         '-i', input,
+        '-map', '0:v:0', '-map', '0:a:0?',
         '-c:v', 'libx264',
         '-preset', preset,
         '-crf', crf,
         '-pix_fmt', 'yuv420p',
+        ...evenDims,
         '-c:a', 'aac',
         '-b:a', '128k',
+        '-ar', '48000',
+        '-sn',
         '-movflags', '+faststart',
         output
-    ]);
+    ];
+    const videoOnly = [
+        '-y',
+        '-i', input,
+        '-map', '0:v:0',
+        '-c:v', 'libx264',
+        '-preset', preset,
+        '-crf', crf,
+        '-pix_fmt', 'yuv420p',
+        ...evenDims,
+        '-an',
+        '-movflags', '+faststart',
+        output
+    ];
 
-    const check = await verifyFileIntegrity(output);
-    if (!check.valid && !check.skipped) {
+    let check = null;
+    for (const attempt of [['video+audio', full], ['video-only (audio dropped)', videoOnly]]) {
+        console.log(`[FFMPEG] Re-encoding (${attempt[0]}, libx264 preset=${preset} crf=${crf}, yuv420p, faststart)...`);
+        try {
+            await run(attempt[1]);
+            check = await verifyFileIntegrity(output);
+            if (check.valid || check.skipped) break;
+            console.log(`[FFMPEG] Re-encode (${attempt[0]}) output invalid (${check.error})`);
+        } catch (e) {
+            console.log(`[FFMPEG] Re-encode (${attempt[0]}) failed: ${String(e.message).split('\n').filter(Boolean).slice(-3).join(' | ')}`);
+        }
+    }
+
+    if (!check || (!check.valid && !check.skipped)) {
         if (fs.existsSync(output)) fs.unlinkSync(output);
-        throw new Error(`Re-encoded MP4 failed validation: ${check.error}`);
+        throw new Error('All re-encode attempts failed validation');
     }
     console.log(`[FFMPEG] Remuxed (re-encode) ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
 }
