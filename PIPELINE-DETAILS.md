@@ -76,11 +76,11 @@ topcinemaa.co
 - **مهم**: الأفلام اللي تسجلات قبل ما يتعاودوش ولا يحملوا — تقليل للوقت والفلوس.
 
 ### الخطوة 5 — DOWNLOAD (`downloadHlsToFile`)
-- يقرا master playlist → ياخذ أول `index-*.m3u8` (أعلى جودة) → يجمع قايمة الـ segments.
+- يقرا master playlist → يختار **أعلى variant بـ BANDWIDTH** (الفيديو الحقيقي، مش أول خط).
+- **كشف مبكر (early-abort)**: بعد أول segment فقط، يحلّله بـ `ffprobe` — إذا كان كوديكس صورة (`png`/`mjpeg`...) معناها "سلايدشو صور" مش فيديو حقيقي → يوقف فورًا بلا ما ينزل 1GB.
 - ينزل كل segment بـ `axios` مع هيدرات متصفح (Referer/Origin/UA) باش يتجاوز حماية CDN اللي كتحظر ffmpeg.
-- **Retry ×5** لكل segment (يفشل يتعاود مع تأخير متزايد) + **backpressure** (ما يفيضش الـ buffer).
-- النتيجة: ملف `.ts` واحد (concatenated segments).
-- مثال حقيقي: 627 segment = **637MB**.
+- **Retry ×5** لكل segment + **backpressure**.
+- مثال حقيقي: 627 segment = **637MB** (The Currents — فيديو حقيقي).
 
 ### الخطوة 6 — REMUX + VALIDATE (`remuxTsToMp4` + `verifyFileIntegrity`)
 استراتيجية من طبقتين + تحقق إجباري قبل الرفع:
@@ -231,6 +231,7 @@ node script.js
 | المشكل | السبب | الحل |
 |--------|-------|------|
 | `You are not allowed to upload files` (dood) | premium منتهي | جدّد الاشتراك ثم حيد `"enabled": false` من config |
+| "مصدر صور PNG" (early-abort) | الأفلام الجديدة فـ topcinemaa/streamwish كايتقدّمو كـ سلايدشو صور (BANDWIDTH < 1Mbps) | **مشكل من المصدر** — ما يمكنش لأي remux/encode يصلحو. البايبلاين كيكشفو فـ أول segment ويسجل الفيلم كـ skipped. انتظر فيلم حقيقي. |
 | كل hosts "Video encoding error" | رفع remote بـ m3u8 | تأكد `remote: false` لكل hosts (local upload) |
 | الملف ماشي موجود فـ DB | نفس الفيلم مسجل قبل | `check-hosts.js` + `movieExists` |
 | `ORIG_HEAD broken` (git) | ref تلف | اكتب `ref: refs/heads/main` فـ `.git/ORIG_HEAD` |
