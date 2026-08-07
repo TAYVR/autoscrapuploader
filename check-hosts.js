@@ -53,6 +53,9 @@ function isSuccess(host, val) {
     if (Array.isArray(val.result)) {
         return val.result.some(f => f && f.filecode);
     }
+    if (Array.isArray(val)) {
+        return val.some(f => f && f.file_code && String(f.file_status).toUpperCase() === 'OK');
+    }
     return false;
 }
 
