@@ -52,6 +52,12 @@ function saveState(state) {
     console.log(`[STATE] Saved state.json: Page ${state.currentPage}, total processed movies: ${state.processedMovies.length}`);
 }
 /**
+ * Codecs that indicate an image-based stream (PNG slideshow "movies" served by
+ * some hosters). These are not real video and cannot be encoded into a playable MP4.
+ */
+const IMAGE_CODECS = new Set(['png', 'mjpeg', 'bmp', 'tiff', 'gif', 'jpeg2000', 'image2', 'webp', 'ppm']);
+
+/**
  * Downloads an HLS stream to a local .ts file using Node.js axios.
  * Uses browser-like headers to bypass CDN bot detection that blocks FFmpeg.
  */
@@ -102,6 +108,9 @@ async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
     }
     if (!streamUrl) streamUrl = fallback;
     if (!streamUrl) throw new Error('No stream playlist found in master.m3u8');
+    console.log(bestBandwidth >= 0
+        ? `[HLS-DL] Selected variant: ${streamUrl} (BANDWIDTH=${bestBandwidth})`
+        : `[HLS-DL] Selected stream: ${streamUrl}`);
 
     // Step 3: Fetch segment playlist
     console.log(`[HLS-DL] Fetching segment playlist: ${streamUrl}`);
@@ -143,6 +152,17 @@ async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
             await new Promise(resolve => writeStream.once('drain', resolve));
         }
     };
+
+    // Early-abort: probe the first segment for image-based sources (PNG slideshows)
+    // so we never download ~1GB of a source that is not real video.
+    const firstSeg = (await fetchSegment(segments[0])).data;
+    const probePath = path.join(__dirname, '_probe_first.ts');
+    fs.writeFileSync(probePath, Buffer.from(firstSeg));
+    const firstProbe = await probeWithFfprobe(probePath);
+    fs.unlinkSync(probePath);
+    if (firstProbe && firstProbe.videoCodec && IMAGE_CODECS.has(firstProbe.videoCodec)) {
+        throw new Error(`Source is an image-based stream (video codec "${firstProbe.videoCodec}"), not real video - aborting download`);
+    }
 
     for (let idx = 0; idx < segments.length; idx++) {
         const segUrl = segments[idx];
@@ -251,6 +271,9 @@ async function remuxTsToMp4(input, output) {
     });
 
     const probe = await probeWithFfprobe(input);
+    if (probe && probe.videoCodec && IMAGE_CODECS.has(probe.videoCodec)) {
+        throw new Error(`Source is an image-based stream (video codec "${probe.videoCodec}"), not real video - refusing to encode`);
+    }
     const forceReencode = process.env.FORCE_REENCODE === '1';
     const compatible = probe && !probe.error && probe.hasVideo && probe.videoCodec === 'h264'
         && (!probe.hasAudio || probe.audioCodec === 'aac');
