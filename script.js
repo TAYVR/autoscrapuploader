@@ -153,28 +153,24 @@ async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
  * HE-AAC to AAC via the aac_adtstoasc bitstream filter when needed.
  */
 async function remuxTsToMp4(input, output) {
-    return new Promise((resolve, reject) => {
+    const run = (args) => new Promise((resolve, reject) => {
         let stderr = '';
-        const args = [
-            '-y',
-            '-i', input,
-            '-c', 'copy',
-            '-bsf:a', 'aac_adtstoasc',
-            '-movflags', '+faststart',
-            output
-        ];
         const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
         proc.stderr.on('data', (d) => { stderr += d.toString(); });
         proc.on('error', (err) => reject(new Error(`ffmpeg not available: ${err.message}`)));
-        proc.on('close', (code) => {
-            if (code === 0) {
-                console.log(`[FFMPEG] Remuxed ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
-                resolve();
-            } else {
-                reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-300)}`));
-            }
-        });
+        proc.on('close', (code) => code === 0 ? resolve() : reject(new Error(stderr.slice(-300))));
     });
+
+    const withBsf = ['-y', '-i', input, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', '-movflags', '+faststart', output];
+    const plain = ['-y', '-i', input, '-c', 'copy', '-movflags', '+faststart', output];
+
+    try {
+        await run(withBsf);
+    } catch (err) {
+        console.log(`[FFMPEG] aac_adtstoasc failed (${String(err.message).split('\n')[0]}), retrying without bitstream filter...`);
+        await run(plain);
+    }
+    console.log(`[FFMPEG] Remuxed ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
 }
 
 
