@@ -76,16 +76,31 @@ async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
     const masterText = masterRes.data;
     const baseUrl = masterUrl.substring(0, masterUrl.lastIndexOf('/') + 1);
 
-    // Step 2: Find best quality sub-playlist
+    // Step 2: Find best quality sub-playlist (highest BANDWIDTH variant when declared)
     let streamUrl = null;
+    let fallback = null;
+    let bestBandwidth = -1;
     const lines = masterText.split('\n').map(l => l.trim()).filter(Boolean);
-    for (const line of lines) {
-        if (!line.startsWith('#')) {
-            streamUrl = line.startsWith('http') ? line : baseUrl + line;
-            break;
+    for (let idx = 0; idx < lines.length; idx++) {
+        const line = lines[idx];
+        if (line.startsWith('#')) {
+            if (line.startsWith('#EXT-X-STREAM-INF:')) {
+                const next = lines[idx + 1];
+                if (!next || next.startsWith('#')) continue;
+                const resolved = next.startsWith('http') ? next : baseUrl + next;
+                if (!fallback) fallback = resolved;
+                const bwMatch = line.match(/BANDWIDTH=(\d+)/);
+                const bw = bwMatch ? parseInt(bwMatch[1], 10) : 0;
+                if (bw > bestBandwidth) {
+                    bestBandwidth = bw;
+                    streamUrl = resolved;
+                }
+            }
+            continue;
         }
+        if (!fallback) fallback = line.startsWith('http') ? line : baseUrl + line;
     }
-
+    if (!streamUrl) streamUrl = fallback;
     if (!streamUrl) throw new Error('No stream playlist found in master.m3u8');
 
     // Step 3: Fetch segment playlist
