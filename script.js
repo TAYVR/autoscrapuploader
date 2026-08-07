@@ -209,16 +209,88 @@ async function resolveTmdbId(title, year) {
 }
 
 /**
- * Upload a local file to a video hosting platform
+ * Recursively dig for the first matching key in a (possibly nested) API response.
  */
-async function uploadToHost(hostName, hostConfig, filePath) {
+function digFor(obj, keys, depth = 0) {
+    if (!obj || typeof obj !== 'object' || depth > 5) return null;
+    for (const key of keys) {
+        if (obj[key] && typeof obj[key] === 'string') return obj[key];
+    }
+    if (Array.isArray(obj)) {
+        for (const item of obj) {
+            const v = digFor(item, keys, depth + 1);
+            if (v) return v;
+        }
+        return null;
+    }
+    for (const key of Object.keys(obj)) {
+        const v = digFor(obj[key], keys, depth + 1);
+        if (v) return v;
+    }
+    return null;
+}
+
+/**
+ * Remote URL upload: the host fetches and converts the m3u8 itself.
+ * No local download, no file upload, no conversion errors on our side.
+ */
+async function uploadRemoteToHost(hostName, hostConfig, m3u8Url) {
+    const api = hostConfig.api;
+    const params = { key: hostConfig.key, url: m3u8Url };
+    if (hostConfig.type === 'clickn') params.fld_id = 0;
+
+    try {
+        console.log(`[UPLOAD] Remote upload to ${hostName}...`);
+        const res = await axios.get(`${api}/upload/url`, { params, timeout: 90000 });
+        const data = res.data;
+
+        const fileCode = digFor(data, ['filecode', 'file_code']);
+        if (!fileCode) {
+            return { error: `No filecode returned`, raw: JSON.stringify(data).slice(0, 200) };
+        }
+
+        const embedUrl = digFor(data, ['embed_url', 'embedurl', 'url']);
+        console.log(`[UPLOAD] ${hostName} accepted -> filecode ${fileCode}`);
+
+        // Best-effort: poll for the file to be ready (up to ~60s)
+        let info = null;
+        for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise(r => setTimeout(r, 10000));
+            try {
+                const pollRes = await axios.get(`${api}/file/info`, {
+                    params: { key: hostConfig.key, file_code: fileCode },
+                    timeout: 30000
+                });
+                const found = pollRes.data;
+                const dl = digFor(found, ['download_url', 'link']);
+                if (dl) { info = { download_url: dl, embed_url: digFor(found, ['embed_url', 'embedurl']) }; break; }
+            } catch (e) { /* not ready yet */ }
+        }
+
+        console.log(`[UPLOAD] Success on ${hostName} (remote)`);
+        return {
+            success: true,
+            filecode: fileCode,
+            embed_url: (info && info.embed_url) || embedUrl,
+            download_url: (info && info.download_url) || null,
+            polled: !!info
+        };
+    } catch (error) {
+        console.error(`[UPLOAD ERROR] Failed remote upload on ${hostName}:`, error.message);
+        return { error: error.message };
+    }
+}
+
+/**
+ * Local file upload (used only for hosts without remote upload, e.g. mixdrop).
+ */
+async function uploadFileToHost(hostName, hostConfig, filePath) {
     const form = new FormData();
     let uploadUrl = '';
     let fileField = 'file';
 
     try {
-        if (hostConfig.type === 'xfs' || hostConfig.type === 'dood' || hostConfig.type === 'uqloadxfs') {
-            // Clicknupload/docs en XFS: Step 1 get upload server (with key), Step 2 POST key + file
+        if (hostConfig.type === 'xfs' || hostConfig.type === 'dood') {
             const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
@@ -229,7 +301,6 @@ async function uploadToHost(hostName, hostConfig, filePath) {
             }
             form.append('key', hostConfig.key);
         } else if (hostConfig.type === 'vinovo') {
-            // Vinovo: Step 1 GET with 'key', Step 2 POST form field is 'api_key'
             const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
@@ -240,8 +311,6 @@ async function uploadToHost(hostName, hostConfig, filePath) {
             }
             form.append('api_key', hostConfig.key);
         } else if (hostConfig.type === 'clickn') {
-            // Clicknupload: Step 1 returns 'upload_url' (real) or 'result' (docs) + 'sess_id';
-            // Step 2 upload uses sess_id + utype=prem + file_0 (NOT 'key')
             const serverRes = await axios.get(`${hostConfig.api}/upload/server`, {
                 params: { key: hostConfig.key }
             });
@@ -262,7 +331,7 @@ async function uploadToHost(hostName, hostConfig, filePath) {
 
         form.append(fileField, fs.createReadStream(filePath), { filename: path.basename(filePath) });
 
-        console.log(`[UPLOAD] Starting upload to ${hostName}...`);
+        console.log(`[UPLOAD] Starting file upload to ${hostName}...`);
         let lastError = null;
         const maxAttempts = 3;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -601,32 +670,39 @@ async function main() {
             continue;
         }
 
+        // Decide which hosts need a local file (no remote upload API) vs remote URL upload
+        const hostsWithLocalUpload = Object.values(CONFIG.hosts).filter(h => h.remote !== true);
+        const needsLocalFile = hostsWithLocalUpload.length > 0;
+
         const safeTitle = (metadata.title || `output_${i}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, '').trim().replace(/\s+/g, '_');
         const rawTs = `${safeTitle}.ts`;
         const outputVideo = `${safeTitle}.mp4`;
-        console.log('[HLS-DL] Downloading stream via Node.js HLS downloader...');
+        let localVideoReady = false;
 
-        try {
-            await downloadHlsToFile(hlsUrl, metadata.iframeUrl, rawTs);
-        } catch (err) {
-            console.error('[HLS-DL ERROR] Download failed:', err.message);
-            if (fs.existsSync(rawTs)) fs.unlinkSync(rawTs);
-            continue;
-        }
-
-        // Remux raw TS -> real MP4 so hosts can read it (mixdrop/uqload/vinovo reject TS-data in .mp4)
-        try {
-            await remuxTsToMp4(rawTs, outputVideo);
-        } catch (err) {
-            console.error('[FFMPEG ERROR] Remux failed:', err.message);
-            if (fs.existsSync(rawTs)) fs.unlinkSync(rawTs);
-            continue;
+        if (needsLocalFile) {
+            console.log('[HLS-DL] Downloading stream via Node.js HLS downloader (needed for local hosts)...');
+            try {
+                await downloadHlsToFile(hlsUrl, metadata.iframeUrl, rawTs);
+                await remuxTsToMp4(rawTs, outputVideo);
+                localVideoReady = true;
+            } catch (err) {
+                console.error('[LOCAL-DL ERROR] Local download/remux failed (remote hosts still run):', err.message);
+            } finally {
+                if (fs.existsSync(rawTs)) fs.unlinkSync(rawTs);
+            }
         }
 
         const movieUploadResults = {};
         for (const [hostName, hostConfig] of Object.entries(CONFIG.hosts)) {
-            const res = await uploadToHost(hostName, hostConfig, outputVideo);
-            movieUploadResults[hostName] = res;
+            if (hostConfig.remote === true) {
+                movieUploadResults[hostName] = await uploadRemoteToHost(hostName, hostConfig, hlsUrl);
+            } else {
+                if (localVideoReady && fs.existsSync(outputVideo)) {
+                    movieUploadResults[hostName] = await uploadFileToHost(hostName, hostConfig, outputVideo);
+                } else {
+                    movieUploadResults[hostName] = { error: 'Skipped: local file not available (download/remux failed)' };
+                }
+            }
         }
 
         // Save to Turso Sharded Databases
