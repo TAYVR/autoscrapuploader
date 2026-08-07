@@ -1,70 +1,28 @@
 [
   {
-    "tmdbId": 2028945901,
-    "title": "فيلم The Currents 2025 مترجم اون لاين",
-    "movieUrl": "https://topcinemaa.co/فيلم-the-currents-2025-مترجم-اون-لاين",
-    "hlsUrl": "https://streamwish.fun/stream/xu6ttHQfrmsMe1Uvh0vLYQ/kjhhiuahiuhgihdf/1786108180/73646736/master.m3u8",
+    "tmdbId": 324615558,
+    "title": "فيلم Penance 2025 مترجم اون لاين",
+    "movieUrl": "https://topcinemaa.co/فيلم-penance-2025-مترجم-اون-لاين",
+    "hlsUrl": "https://streamwish.fun/stream/juT4d_ycsINL6iSttr2oZw/kjhhiuahiuhgihdf/1786111911/73635186/master.m3u8",
     "uploads": {
-      "mixdrop": {
-        "success": true,
-        "result": {
-          "fileref": "eln6nn0efqxvkxk",
-          "url": "https://mixdrop.top/f/eln6nn0efqxvkxk",
-          "embedurl": "https://mixdrop.top/e/eln6nn0efqxvkxk"
-        }
-      },
-      "doodstream": "<HTML><BODY><Form name='F1' action='https://fs-public.intconnect.net/' target='_parent' method='POST'><textarea name=\"op\">upload_result</textarea><textarea name=\"fn\">فيلم_The_Currents_2025_مترجم_اون_لاين.mp4</textarea><textarea name=\"st\">0:0:0:You are not allowed to upload files</textarea></Form><Script>document.location='javascript:false';document.F1.submit();</Script></BODY></HTML>",
-      "vinovo": {
-        "status": 200,
-        "msg": "OK",
-        "server_time": "2026-08-07 01:19:48",
-        "result": {
-          "embed_url": "https://vinovo.to/e/q7k3kk3qan9oke",
-          "download_url": "https://vinovo.to/d/q7k3kk3qan9oke",
-          "filecode": "q7k3kk3qan9oke",
-          "title": "فيلم_The_Currents_2025_مترجم_اون_لاين",
-          "canplay": 0
-        }
+      "streamwish": {
+        "error": "Skipped: local file not available (download/remux failed)"
       },
       "earnvids": {
-        "msg": "OK",
-        "status": 200,
-        "files": [
-          {
-            "filecode": "7hpeikyzsv63",
-            "filename": "فيلم_The_Currents_2025_مترجم_اون_لاين.mp4",
-            "status": "OK"
-          }
-        ]
+        "error": "Skipped: local file not available (download/remux failed)"
       },
-      "streamwish": {
-        "msg": "OK",
-        "status": 200,
-        "files": [
-          {
-            "filecode": "ilmnr116dnv1",
-            "filename": "فيلم_The_Currents_2025_مترجم_اون_لاين.mp4",
-            "status": "OK"
-          }
-        ]
+      "mixdrop": {
+        "error": "Skipped: local file not available (download/remux failed)"
+      },
+      "vinovo": {
+        "error": "Skipped: local file not available (download/remux failed)"
+      },
+      "clicknupload": {
+        "error": "Skipped: local file not available (download/remux failed)"
       },
       "uqload": {
-        "msg": "OK",
-        "status": 200,
-        "files": [
-          {
-            "filecode": "cxtd78qm53a1",
-            "filename": "فيلم_The_Currents_2025_مترجم_اون_لاين.mp4",
-            "status": "OK"
-          }
-        ]
-      },
-      "clicknupload": [
-        {
-          "file_code": "8k7naumfvqti",
-          "file_status": "OK"
-        }
-      ]
+        "error": "Skipped: local file not available (download/remux failed)"
+      }
     }
   }
 ]
