@@ -90,7 +90,14 @@ async function downloadWithFfmpeg(m3u8Url, referer, outputPath) {
         proc.on('error', (err) => reject(new Error(`ffmpeg not available: ${err.message}`)));
         proc.on('close', (code) => {
             if (code === 0) resolve();
-            else reject(new Error(stderr.slice(-500)));
+            else {
+                // Extract the actual error line(s) — skip the version/config banner.
+                const lines = stderr.split(/\r?\n/).filter(l => l.trim());
+                const errLine = lines.filter(l => /error|failed|unable|no such|could not|403|404|405/i.test(l)).pop()
+                    || lines.filter(l => !/^\s*(ffmpeg version|configuration:|libav|--enable)/i.test(l)).pop()
+                    || stderr.slice(-500);
+                reject(new Error(String(errLine || stderr).slice(-600)));
+            }
         });
     });
 
@@ -576,15 +583,25 @@ async function extractMovieMetadataAndStream(movieUrl) {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
 
         let streamUrl = null;
+        const interceptedUrls = [];
 
         page.on('response', (response) => {
             const url = response.url();
             const contentType = (response.headers()['content-type'] || '').toLowerCase();
 
             if (url.includes('.m3u8') || url.includes('master.txt') || contentType.includes('mpegurl') || contentType.includes('m3u8')) {
-                if (!streamUrl) {
+                interceptedUrls.push(url);
+                console.log(`[INTERCEPTED HLS] ${url}`);
+                // Prefer a CDN stream over the streamwish.fun/stream anti-bot tunnel.
+                // The tunnel URL often serves TikTok image segments or 403s to ffmpeg,
+                // while the real HLS lives on the CDN (cdn-video.xyz etc).
+                const isTunnel = /streamwish\.fun\/stream\//i.test(url) || /tiktokcdn|ttam-origin/i.test(url);
+                if (!isTunnel) {
+                    // Any real CDN/playlist URL wins over whatever we had.
                     streamUrl = url;
-                    console.log(`[INTERCEPTED HLS] ${url}`);
+                } else if (!streamUrl) {
+                    // Only fall back to the tunnel if nothing else was captured.
+                    streamUrl = url;
                 }
             }
         });
@@ -802,6 +819,17 @@ async function main() {
                 }
             }
         }));
+
+        const successfulUploads = Object.entries(movieUploadResults).filter(([, r]) => {
+            return r && (r.success === true || (r.files && r.files.length) || (r.result && r.result.fileref));
+        });
+
+        if (successfulUploads.length === 0) {
+            // Nothing made it to any host. Do NOT record this movie as processed:
+            // it will be retried on the next scheduled run.
+            console.error(`[RETRY] No successful uploads for "${metadata.title}" — NOT marking as processed so it retries next run.`);
+            continue;
+        }
 
         // Save to Turso Sharded Databases
         await saveMovieRecord({
