@@ -1,27 +1,39 @@
 [
   {
-    "tmdbId": 960150254,
-    "title": "فيلم Cruel Hands 2026 مترجم اون لاين",
-    "movieUrl": "https://topcinemaa.co/فيلم-cruel-hands-2026-مترجم-اون-لاين",
-    "hlsUrl": "https://streamwish.fun/stream/0oCXES1e6Osw0u6qBQWUcg/kjhhiuahiuhgihdf/1786416793/73566133/master.m3u8",
+    "tmdbId": 2028945901,
+    "title": "فيلم The Currents 2025 مترجم اون لاين",
+    "movieUrl": "https://topcinemaa.co/فيلم-the-currents-2025-مترجم-اون-لاين",
+    "hlsUrl": "https://streamwish.fun/stream/hKBtuZ1M9jpzFPF_lftXCQ/kjhhiuahiuhgihdf/1786422304/73646736/master.m3u8",
     "uploads": {
       "streamwish": {
-        "error": "Skipped: local file not available (download/remux failed)"
+        "host": "streamwish",
+        "success": false,
+        "error": "Skipped: local file not available (download failed)"
       },
       "earnvids": {
-        "error": "Skipped: local file not available (download/remux failed)"
+        "host": "earnvids",
+        "success": false,
+        "error": "Skipped: local file not available (download failed)"
       },
       "mixdrop": {
-        "error": "Skipped: local file not available (download/remux failed)"
+        "host": "mixdrop",
+        "success": false,
+        "error": "Skipped: local file not available (download failed)"
       },
       "vinovo": {
-        "error": "Skipped: local file not available (download/remux failed)"
+        "host": "vinovo",
+        "success": false,
+        "error": "Skipped: local file not available (download failed)"
       },
       "clicknupload": {
-        "error": "Skipped: local file not available (download/remux failed)"
+        "host": "clicknupload",
+        "success": false,
+        "error": "Skipped: local file not available (download failed)"
       },
       "uqload": {
-        "error": "Skipped: local file not available (download/remux failed)"
+        "host": "uqload",
+        "success": false,
+        "error": "Skipped: local file not available (download failed)"
       }
     }
   }
