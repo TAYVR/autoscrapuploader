@@ -3,12 +3,14 @@
         "streamwish": {
             "api": "https://streamhgapi.com/api",
             "key": "32701lz5d1jfv0uu1elfa",
+            "page": "streamwish.to",
             "type": "xfs",
             "remote": false
         },
         "doodstream": {
             "api": "https://doodapi.com/api",
-            "key": "574750e0gkg545cqr54gpj",
+            "key": "574750ige8zqsorv1zlwyi",
+            "page": "dood.to",
             "type": "dood",
             "remote": false,
             "enabled": false
@@ -16,6 +18,7 @@
         "earnvids": {
             "api": "https://earnvidsapi.com/api",
             "key": "46568v1m8g373eass4yeh",
+            "page": "earnvids.com",
             "type": "xfs",
             "remote": false
         },
@@ -23,24 +26,28 @@
             "api": "https://ul.mixdrop.ag/api",
             "key": "tKDSypNMSQ2dYYz",
             "email": "pp7426912@gmail.com",
+            "page": "mixdrop.ag",
             "type": "mixdrop",
             "remote": false
         },
         "vinovo": {
             "api": "https://api.vinovo.si/api",
             "key": "1841f97685c80022a4b1685f429888",
+            "page": "vinovo.si",
             "type": "vinovo",
             "remote": false
         },
         "clicknupload": {
             "api": "https://clicknupload.click/api",
             "key": "94544nk3sccdlxhphrdev",
+            "page": "clicknupload.click",
             "type": "clickn",
             "remote": false
         },
         "uqload": {
             "api": "https://uqload.is/api",
             "key": "156977pmaybroiyjg6pbtp",
+            "page": "uqload.is",
             "type": "xfs",
             "remote": false
         }

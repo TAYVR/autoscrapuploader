@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const axios = require('axios');
 const FormData = require('form-data');
 const puppeteer = require('puppeteer-extra');
@@ -8,6 +8,28 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { saveMovieRecord, movieExists } = require('./turso');
 
 puppeteer.use(StealthPlugin());
+
+/**
+ * Resolve the ffmpeg / ffprobe binary path.
+ * Prefer system binaries (GitHub Actions), fall back to bundled static binaries
+ * (ffmpeg-static / ffprobe-static) so the pipeline also runs locally.
+ */
+function ffmpegPath() {
+    if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+    try {
+        const p = require('ffmpeg-static');
+        if (p) return p;
+    } catch (e) { /* not installed */ }
+    return 'ffmpeg';
+}
+function ffprobePath() {
+    if (process.env.FFPROBE_PATH) return process.env.FFPROBE_PATH;
+    try {
+        const p = require('ffprobe-static').path;
+        if (p) return p;
+    } catch (e) { /* not installed */ }
+    return 'ffprobe';
+}
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
@@ -52,134 +74,64 @@ function saveState(state) {
     console.log(`[STATE] Saved state.json: Page ${state.currentPage}, total processed movies: ${state.processedMovies.length}`);
 }
 /**
- * Codecs that indicate an image-based stream (PNG slideshow "movies" served by
- * some hosters). These are not real video and cannot be encoded into a playable MP4.
+ * Downloads an HLS stream directly into an MP4 using FFmpeg's native HLS demuxer.
+ * FFmpeg handles everything a manual segment downloader cannot:
+ *   - AES-128 key loading (#EXT-X-KEY) -> files that actually play
+ *   - variant selection, redirects, retries, byte ranges
+ * We inject the Referer/User-Agent via -headers so the CDN accepts the request.
+ * Returns the ffprobe verification result.
  */
-const IMAGE_CODECS = new Set(['png', 'mjpeg', 'bmp', 'tiff', 'gif', 'jpeg2000', 'image2', 'webp', 'ppm']);
-
-/**
- * Downloads an HLS stream to a local .ts file using Node.js axios.
- * Uses browser-like headers to bypass CDN bot detection that blocks FFmpeg.
- */
-async function downloadHlsToFile(masterUrl, iframeUrl, outputPath) {
-    const referer = iframeUrl || masterUrl;
-    const origin = new URL(referer).origin;
-
-    const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Referer': referer,
-        'Origin': origin,
-        'Accept': '*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin'
-    };
-
-    // Step 1: Fetch master playlist
-    console.log('[HLS-DL] Fetching master playlist...');
-    const masterRes = await axios.get(masterUrl, { headers, timeout: 30000 });
-    const masterText = masterRes.data;
-    const baseUrl = masterUrl.substring(0, masterUrl.lastIndexOf('/') + 1);
-
-    // Step 2: Find best quality sub-playlist (highest BANDWIDTH variant when declared)
-    let streamUrl = null;
-    let fallback = null;
-    let bestBandwidth = -1;
-    const lines = masterText.split('\n').map(l => l.trim()).filter(Boolean);
-    for (let idx = 0; idx < lines.length; idx++) {
-        const line = lines[idx];
-        if (line.startsWith('#')) {
-            if (line.startsWith('#EXT-X-STREAM-INF:')) {
-                const next = lines[idx + 1];
-                if (!next || next.startsWith('#')) continue;
-                const resolved = next.startsWith('http') ? next : baseUrl + next;
-                if (!fallback) fallback = resolved;
-                const bwMatch = line.match(/BANDWIDTH=(\d+)/);
-                const bw = bwMatch ? parseInt(bwMatch[1], 10) : 0;
-                if (bw > bestBandwidth) {
-                    bestBandwidth = bw;
-                    streamUrl = resolved;
-                }
-            }
-            continue;
-        }
-        if (!fallback) fallback = line.startsWith('http') ? line : baseUrl + line;
-    }
-    if (!streamUrl) streamUrl = fallback;
-    if (!streamUrl) throw new Error('No stream playlist found in master.m3u8');
-    console.log(bestBandwidth >= 0
-        ? `[HLS-DL] Selected variant: ${streamUrl} (BANDWIDTH=${bestBandwidth})`
-        : `[HLS-DL] Selected stream: ${streamUrl}`);
-
-    // Step 3: Fetch segment playlist
-    console.log(`[HLS-DL] Fetching segment playlist: ${streamUrl}`);
-    const streamBase = streamUrl.substring(0, streamUrl.lastIndexOf('/') + 1);
-    const segRes = await axios.get(streamUrl, { headers, timeout: 30000 });
-    const segLines = segRes.data.split('\n').map(l => l.trim()).filter(Boolean);
-
-    const segments = segLines
-        .filter(l => !l.startsWith('#'))
-        .map(l => l.startsWith('http') ? l : streamBase + l);
-
-    if (segments.length === 0) throw new Error('No segments found in stream playlist');
-    console.log(`[HLS-DL] Downloading ${segments.length} segments...`);
-
-    // Step 4: Download and concatenate segments with per-segment retry + backpressure
-    const writeStream = fs.createWriteStream(outputPath);
-
-    // Fetch one segment, retrying on transient errors (aborts, resets, timeouts)
-    const fetchSegment = async (url, attempt = 1) => {
-        try {
-            return await axios.get(url, {
-                headers,
-                responseType: 'arraybuffer',
-                timeout: 90000
-            });
-        } catch (e) {
-            if (attempt < 5) {
-                process.stdout.write(`\r[HLS-DL] Segment retry (attempt ${attempt}/5)... `);
-                await new Promise(r => setTimeout(r, 3000 * attempt));
-                return fetchSegment(url, attempt + 1);
-            }
-            throw e;
-        }
-    };
-
-    // Wait for the write stream to drain so we never overflow its internal buffer
-    const writeAndDrain = async (buf) => {
-        if (!writeStream.write(buf)) {
-            await new Promise(resolve => writeStream.once('drain', resolve));
-        }
-    };
-
-    // Early-abort: probe the first segment for image-based sources (PNG slideshows)
-    // so we never download ~1GB of a source that is not real video.
-    const firstSeg = (await fetchSegment(segments[0])).data;
-    const probePath = path.join(__dirname, '_probe_first.ts');
-    fs.writeFileSync(probePath, Buffer.from(firstSeg));
-    const firstProbe = await probeWithFfprobe(probePath);
-    fs.unlinkSync(probePath);
-    if (firstProbe && firstProbe.videoCodec && IMAGE_CODECS.has(firstProbe.videoCodec)) {
-        throw new Error(`Source is an image-based stream (video codec "${firstProbe.videoCodec}"), not real video - aborting download`);
-    }
-
-    for (let idx = 0; idx < segments.length; idx++) {
-        const segUrl = segments[idx];
-        if ((idx + 1) % 20 === 0 || idx === 0) {
-            process.stdout.write(`\r[HLS-DL] Segment ${idx + 1}/${segments.length}`);
-        }
-        const segData = await fetchSegment(segUrl);
-        await writeAndDrain(Buffer.from(segData.data));
-    }
-    console.log('');
-
-    await new Promise((resolve, reject) => {
-        writeStream.end((err) => err ? reject(err) : resolve());
+async function downloadWithFfmpeg(m3u8Url, referer, outputPath) {
+    const ffmpegBin = ffmpegPath();
+    const run = (args) => new Promise((resolve, reject) => {
+        let stderr = '';
+        const proc = spawn(ffmpegBin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+        proc.stderr.on('data', (d) => { stderr += d.toString(); });
+        proc.on('error', (err) => reject(new Error(`ffmpeg not available: ${err.message}`)));
+        proc.on('close', (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(stderr.slice(-500)));
+        });
     });
 
-    const stats = fs.statSync(outputPath);
-    console.log(`[HLS-DL] Download complete: ${outputPath} (${(stats.size / 1024 / 1024).toFixed(1)} MB)`);
+    const headers = `Referer: ${referer}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\n`;
+    const common = ['-y', '-headers', headers, '-i', m3u8Url];
+
+    // Attempt 1: stream-copy (fast, lossless) — works when codecs are H.264/AAC
+    try {
+        console.log('[FFMPEG] Downloading HLS via ffmpeg (stream-copy)...');
+        await run([...common, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', '-movflags', '+faststart', outputPath]);
+        const check = await verifyFileIntegrity(outputPath);
+        if (check.valid || check.skipped) {
+            console.log(`[FFMPEG] Done (copy) — ${(fs.statSync(outputPath).size / 1024 / 1024).toFixed(1)} MB`);
+            return check;
+        }
+        console.log(`[FFMPEG] Copy output invalid (${check.error}), falling back to re-encode...`);
+    } catch (e) {
+        console.log(`[FFMPEG] Stream-copy failed (${String(e.message).split('\n')[0]}), falling back to re-encode...`);
+    }
+
+    // Attempt 2: re-encode with libx264 for guaranteed universal compatibility
+    const preset = process.env.FFMPEG_PRESET || 'fast';
+    const crf = process.env.FFMPEG_CRF || '23';
+    const evenDims = ['-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2'];
+    console.log(`[FFMPEG] Re-encoding (libx264 preset=${preset} crf=${crf}, yuv420p, faststart)...`);
+    await run([
+        ...common,
+        '-map', '0:v:0', '-map', '0:a:0?',
+        '-c:v', 'libx264', '-preset', preset, '-crf', crf,
+        '-pix_fmt', 'yuv420p', ...evenDims,
+        '-c:a', 'aac', '-b:a', '128k', '-ar', '48000',
+        '-sn', '-movflags', '+faststart', outputPath
+    ]);
+
+    const check = await verifyFileIntegrity(outputPath);
+    if (!check.valid && !check.skipped) {
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+        throw new Error('Download failed validation after re-encode');
+    }
+    console.log(`[FFMPEG] Done (re-encode) — ${(fs.statSync(outputPath).size / 1024 / 1024).toFixed(1)} MB`);
+    return check;
 }
 
 /**
@@ -190,7 +142,7 @@ function probeWithFfprobe(filePath) {
     return new Promise((resolve) => {
         let out = '';
         let err = '';
-        const proc = spawn('ffprobe', [
+        const proc = spawn(ffprobePath(), [
             '-v', 'error',
             '-print_format', 'json',
             '-show_format',
@@ -251,104 +203,81 @@ async function verifyFileIntegrity(filePath) {
 }
 
 /**
- * Remux a raw MPEG-TS file (concatenated HLS segments) into a standard, streaming-
- * optimized MP4 and validate it before returning. Strategy:
- *   1. Stream-copy (fast, lossless) when input is already H.264 + AAC => compliant.
- *   2. Otherwise (or if the copied output fails validation) re-encode with libx264
- *      + AAC 128k, yuv420p and +faststart => guaranteed universal compatibility.
- * Set FORCE_REENCODE=1 to always take the re-encode path.
+ * Normalize each host's raw upload response into { host, success, filecode,
+ * embed_url, download_url } using the host's public `page` domain, exactly like
+ * the reference pipeline (the one that works). The embed URL is the critical
+ * piece — it must be /embed-CODE.html (iframe-embeddable), not /e/CODE.
  */
-async function remuxTsToMp4(input, output) {
-    const run = (args) => new Promise((resolve, reject) => {
-        let stderr = '';
-        const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
-        proc.stderr.on('data', (d) => { stderr += d.toString(); });
-        proc.on('error', (err) => reject(new Error(`ffmpeg not available: ${err.message}`)));
-        proc.on('close', (code) => {
-            if (code === 0) resolve();
-            else reject(new Error(stderr.slice(-500)));
-        });
-    });
+function normalizeResult(hostName, hostConfig, data) {
+    const failed = { host: hostName, success: false, raw: data };
+    const page = hostConfig.page;
+    const type = hostConfig.type;
 
-    const probe = await probeWithFfprobe(input);
-    if (probe && probe.videoCodec && IMAGE_CODECS.has(probe.videoCodec)) {
-        throw new Error(`Source is an image-based stream (video codec "${probe.videoCodec}"), not real video - refusing to encode`);
-    }
-    const forceReencode = process.env.FORCE_REENCODE === '1';
-    const compatible = probe && !probe.error && probe.hasVideo && probe.videoCodec === 'h264'
-        && (!probe.hasAudio || probe.audioCodec === 'aac');
-
-    if (!forceReencode && compatible) {
-        console.log('[FFMPEG] Stream-copy path (input already H.264/AAC compatible)');
-        try {
-            await run(['-y', '-i', input, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', '-movflags', '+faststart', output]);
-            const check = await verifyFileIntegrity(output);
-            if (check.valid || check.skipped) {
-                console.log(`[FFMPEG] Remuxed (copy) ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
-                return;
-            }
-            console.log(`[FFMPEG] Stream-copy output invalid (${check.error}), falling back to re-encode...`);
-        } catch (e) {
-            console.log(`[FFMPEG] Stream-copy failed (${String(e.message).split('\n')[0]}), falling back to re-encode...`);
+    if (type === 'mixdrop') {
+        const r = data && data.result;
+        if (data && data.success && r && r.fileref) {
+            return {
+                host: hostName, success: true,
+                filecode: r.fileref,
+                embed_url: r.embedurl,
+                download_url: r.url
+            };
         }
+        return failed;
     }
 
-    const preset = process.env.FFMPEG_PRESET || 'fast';
-    const crf = process.env.FFMPEG_CRF || '23';
-    const evenDims = ['-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2'];
-    console.log(`[FFMPEG] Input codecs: video=${probe.videoCodec}, audio=${probe.audioCodec || 'none'} -> re-encode path`);
-
-    const full = [
-        '-y',
-        '-i', input,
-        '-map', '0:v:0', '-map', '0:a:0?',
-        '-c:v', 'libx264',
-        '-preset', preset,
-        '-crf', crf,
-        '-pix_fmt', 'yuv420p',
-        ...evenDims,
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-ar', '48000',
-        '-sn',
-        '-movflags', '+faststart',
-        output
-    ];
-    const videoOnly = [
-        '-y',
-        '-i', input,
-        '-map', '0:v:0',
-        '-c:v', 'libx264',
-        '-preset', preset,
-        '-crf', crf,
-        '-pix_fmt', 'yuv420p',
-        ...evenDims,
-        '-an',
-        '-movflags', '+faststart',
-        output
-    ];
-
-    let check = null;
-    for (const attempt of [['video+audio', full], ['video-only (audio dropped)', videoOnly]]) {
-        console.log(`[FFMPEG] Re-encoding (${attempt[0]}, libx264 preset=${preset} crf=${crf}, yuv420p, faststart)...`);
-        try {
-            await run(attempt[1]);
-            check = await verifyFileIntegrity(output);
-            if (check.valid || check.skipped) break;
-            console.log(`[FFMPEG] Re-encode (${attempt[0]}) output invalid (${check.error})`);
-        } catch (e) {
-            console.log(`[FFMPEG] Re-encode (${attempt[0]}) failed: ${String(e.message).split('\n').filter(Boolean).slice(-3).join(' | ')}`);
+    if (type === 'dood') {
+        const r = data && data.result;
+        if (r && r.filecode) {
+            return {
+                host: hostName, success: true,
+                filecode: r.filecode,
+                embed_url: `https://${page}/e/${r.filecode}`,
+                download_url: `https://${page}/d/${r.filecode}`
+            };
         }
+        return failed;
     }
 
-    if (!check || (!check.valid && !check.skipped)) {
-        if (fs.existsSync(output)) fs.unlinkSync(output);
-        throw new Error('All re-encode attempts failed validation');
+    if (type === 'vinovo') {
+        const r = data && data.result;
+        if (Array.isArray(r) && r[0] && r[0].filecode) {
+            return {
+                host: hostName, success: true,
+                filecode: r[0].filecode,
+                embed_url: `https://${page}/e/${r[0].filecode}`,
+                download_url: `https://${page}/d/${r[0].filecode}`
+            };
+        }
+        return failed;
     }
-    console.log(`[FFMPEG] Remuxed (re-encode) ${input} -> ${output} (${(fs.statSync(output).size / 1024 / 1024).toFixed(1)} MB)`);
+
+    if (type === 'clickn') {
+        const r = Array.isArray(data) ? data[0] : null;
+        if (r && r.file_code && r.file_status === 'OK') {
+            return {
+                host: hostName, success: true,
+                filecode: r.file_code,
+                embed_url: `https://${page}/embed-${r.file_code}.html`,
+                download_url: `https://${page}/${r.file_code}`
+            };
+        }
+        return failed;
+    }
+
+    // Generic XFileSharing: { msg, status, files: [{ filecode, filename, status }] }
+    const files = data && data.files;
+    if (Array.isArray(files) && files[0] && files[0].filecode) {
+        const code = files[0].filecode;
+        return {
+            host: hostName, success: true,
+            filecode: code,
+            embed_url: `https://${page}/embed-${code}.html`,
+            download_url: `https://${page}/${code}`
+        };
+    }
+    return failed;
 }
-
-
 
 /**
  * Resolves TMDB ID via TMDB Search API or fallback hash
@@ -847,20 +776,16 @@ async function main() {
         const needsLocalFile = hostsWithLocalUpload.length > 0;
 
         const safeTitle = (metadata.title || `output_${i}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, '').trim().replace(/\s+/g, '_');
-        const rawTs = `${safeTitle}.ts`;
         const outputVideo = `${safeTitle}.mp4`;
         let localVideoReady = false;
 
         if (needsLocalFile) {
-            console.log('[HLS-DL] Downloading stream via Node.js HLS downloader (needed for local hosts)...');
+            console.log('[HLS-DL] Downloading stream via FFmpeg (needed for local hosts)...');
             try {
-                await downloadHlsToFile(hlsUrl, metadata.iframeUrl, rawTs);
-                await remuxTsToMp4(rawTs, outputVideo);
+                await downloadWithFfmpeg(hlsUrl, metadata.iframeUrl || hlsUrl, outputVideo);
                 localVideoReady = true;
             } catch (err) {
-                console.error('[LOCAL-DL ERROR] Local download/remux failed (remote hosts still run):', err.message);
-            } finally {
-                if (fs.existsSync(rawTs)) fs.unlinkSync(rawTs);
+                console.error('[LOCAL-DL ERROR] Local download failed (remote hosts still run):', err.message);
             }
         }
 
@@ -870,9 +795,10 @@ async function main() {
                 movieUploadResults[hostName] = await uploadRemoteToHost(hostName, hostConfig, hlsUrl);
             } else {
                 if (localVideoReady && fs.existsSync(outputVideo)) {
-                    movieUploadResults[hostName] = await uploadFileToHost(hostName, hostConfig, outputVideo);
+                    const raw = await uploadFileToHost(hostName, hostConfig, outputVideo);
+                    movieUploadResults[hostName] = normalizeResult(hostName, hostConfig, raw);
                 } else {
-                    movieUploadResults[hostName] = { error: 'Skipped: local file not available (download/remux failed)' };
+                    movieUploadResults[hostName] = { host: hostName, success: false, error: 'Skipped: local file not available (download failed)' };
                 }
             }
         }));
@@ -898,11 +824,9 @@ async function main() {
             uploads: movieUploadResults
         });
 
-        for (const f of [rawTs, outputVideo]) {
-            if (fs.existsSync(f)) {
-                fs.unlinkSync(f);
-                console.log(`[CLEANUP] Deleted local file ${f}`);
-            }
+        if (fs.existsSync(outputVideo)) {
+            fs.unlinkSync(outputVideo);
+            console.log(`[CLEANUP] Deleted local file ${outputVideo}`);
         }
 
         saveState(state);
@@ -912,4 +836,8 @@ async function main() {
     console.log('\n[DONE] All tasks completed successfully. Updated state, Turso DBs, and saved result.json.');
 }
 
-main().catch(console.error);
+if (require.main === module) {
+    main().catch(console.error);
+}
+
+module.exports = { extractMovieMetadataAndStream, downloadWithFfmpeg, normalizeResult, probeWithFfprobe, verifyFileIntegrity, uploadFileToHost, uploadRemoteToHost };

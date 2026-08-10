@@ -9,6 +9,8 @@
     "dependencies": {
         "@libsql/client": "^0.14.0",
         "axios": "^1.7.9",
+        "ffmpeg-static": "^5.2.0",
+        "ffprobe-static": "^3.1.0",
         "form-data": "^4.0.1",
         "puppeteer": "^24.3.0",
         "puppeteer-extra": "^3.3.6",
